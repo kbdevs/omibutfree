@@ -9,7 +9,7 @@ class OpenAIService {
   
   OpenAIService({
     required this.apiKey,
-    this.model = 'gpt-4o-mini',
+    this.model = 'gpt-4.1-mini',
   });
 
   /// Chat with OpenAI using conversation context
