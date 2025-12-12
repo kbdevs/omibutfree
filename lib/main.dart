@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/settings_service.dart';
+import 'services/notification_service.dart'; // Added
 import 'providers/app_provider.dart';
 import 'pages/home_page.dart';
 
@@ -10,6 +11,9 @@ void main() async {
   try {
     // Initialize settings
     await SettingsService.init();
+    
+    // Initialize notifications
+    await NotificationService().initialize();
   } catch (e) {
     debugPrint('Settings init error: $e');
   }

@@ -1,0 +1,760 @@
+//
+//  NotificationBuilder.swift
+//  awesome_notifications
+//
+//  Created by Rafael Setragni on 11/09/20.
+//
+
+import Foundation
+
+@available(iOS 10.0, *)
+public class NotificationBuilder {
+    
+    private let TAG = "NotificationBuilder"
+    
+    // ************** FACTORY PATTERN ***********************
+
+    public static func newInstance() -> NotificationBuilder {
+        return NotificationBuilder()
+    }
+    private init(){}
+    
+    // ********************************************************
+    
+    public func jsonDataToNotificationModel(jsonData:[String : Any?]?) -> NotificationModel? {
+        return NotificationModel(fromMap: jsonData)
+    }
+    
+    public func jsonToNotificationModel(jsonData:String?) -> NotificationModel? {
+        if StringUtils.shared.isNullOrEmpty(jsonData) { return nil }
+        return NotificationModel(fromMap: JsonUtils.fromJson(jsonData))
+    }
+    
+    public func buildNotificationFromJson(jsonData:String?) -> NotificationModel? {
+        return  jsonToNotificationModel(jsonData: jsonData)
+    }
+    
+    public func buildNotificationActionFromModel(
+        notificationModel:NotificationModel?,
+        buttonKeyPressed:String?,
+        isAuthenticationRequired:Bool,
+        userText:String?
+    ) -> ActionReceived? {
+        if notificationModel == nil { return nil }
+        
+        let actionReceived:ActionReceived = ActionReceived(
+            notificationModel!.content,
+            buttonKeyPressed: buttonKeyPressed,
+            buttonKeyInput: userText,
+            isAuthenticationRequired: isAuthenticationRequired
+        )
+        
+        if notificationModel!.actionButtons != nil && !StringUtils.shared.isNullOrEmpty(buttonKeyPressed) {
+            for button:NotificationButtonModel in notificationModel!.actionButtons! {
+                if button.key == buttonKeyPressed {
+                    actionReceived.autoDismissible = button.autoDismissible
+                    actionReceived.actionType = button.actionType
+                    break
+                }
+            }
+        }
+        
+        if notificationModel!.schedule == nil {
+            actionReceived.displayedDate = actionReceived.createdDate
+            actionReceived.displayedLifeCycle = actionReceived.createdLifeCycle
+        }
+        
+        if actionReceived.actionType == nil {
+            actionReceived.actionType = .Default
+        }
+        
+        return actionReceived
+    }
+    
+    public func createNotification(
+        _ notificationModel:NotificationModel,
+        content:UNMutableNotificationContent?,
+        completion: @escaping (NotificationModel?) -> ()
+    ) throws {
+        
+        guard let channelkey:String = notificationModel.content!.channelKey else {
+            throw ExceptionFactory
+                    .shared
+                    .createNewAwesomeException(
+                        className: NotificationIntervalModel.TAG,
+                        code: ExceptionCode.CODE_INVALID_ARGUMENTS,
+                        message: "Channel key is required",
+                        detailedCode: ExceptionCode.DETAILED_INVALID_ARGUMENTS+".channel.key")
+        }
+        
+        guard let channel = ChannelManager.shared.getChannelByKey(channelKey: channelkey) else {
+            throw ExceptionFactory
+                    .shared
+                    .createNewAwesomeException(
+                        className: NotificationIntervalModel.TAG,
+                        code: ExceptionCode.CODE_INSUFFICIENT_PERMISSIONS,
+                        message: "Channel '\(channelkey)' does not exist",
+                        detailedCode: ExceptionCode.DETAILED_INSUFFICIENT_PERMISSIONS+".channel.notFound.\(channelkey)")
+        }
+        
+        if !ChannelManager.shared.isNotificationChannelActive(channel: channel) {
+            throw ExceptionFactory
+                    .shared
+                    .createNewAwesomeException(
+                        className: NotificationIntervalModel.TAG,
+                        code: ExceptionCode.CODE_INSUFFICIENT_PERMISSIONS,
+                        message: "Channel '\(channelkey)' is disabled",
+                        detailedCode: ExceptionCode.DETAILED_INSUFFICIENT_PERMISSIONS+".channel.disabled.\(channelkey)")
+        }
+
+        notificationModel.content!.groupKey = getGroupKey(notificationModel: notificationModel, channel: channel)
+
+        let nextDate:RealDateTime? = getNextScheduleDate(notificationModel: notificationModel)
+        if notificationModel.schedule != nil && nextDate == nil {
+            _ = ScheduleManager.shared.removeSchedule(id: notificationModel.content!.id!)
+            completion(nil)
+            return
+        }
+        
+        setCurrentTranslation(notificationModel: notificationModel)
+        
+        let content = content ?? buildNotificationContentFromModel(notificationModel: notificationModel)
+        
+        setTitle(notificationModel: notificationModel, channel: channel, content: content)
+        setBody(notificationModel: notificationModel, content: content)
+        setSummary(notificationModel: notificationModel, content: content)
+
+        setGrouping(notificationModel: notificationModel, channel: channel, content: content)
+        
+        setVisibility(notificationModel: notificationModel, channel: channel, content: content)
+        setShowWhen(notificationModel: notificationModel, content: content)
+        setBadgeIndicator(notificationModel: notificationModel, channel: channel, content: content)
+        
+        setAutoCancel(notificationModel: notificationModel, content: content)
+        setTicker(notificationModel: notificationModel, content: content)
+        
+        setOnlyAlertOnce(notificationModel: notificationModel, channel: channel, content: content)
+        
+        setLockedNotification(notificationModel: notificationModel, channel: channel, content: content)
+        setImportance(channel: channel, notificationModel: notificationModel,content: content)
+        
+        setSound(notificationModel: notificationModel, channel: channel, content: content)
+        setVibrationPattern(channel: channel, content: content)
+        
+        setLights(channel: channel, content: content)
+        
+        setSmallIcon(channel: channel, content: content)
+        setLargeIcon(notificationModel: notificationModel, content: content)
+        
+        setLayoutColor(notificationModel: notificationModel, channel: channel, content: content)
+        
+        setLayout(notificationModel: notificationModel, content: content)
+        
+        let category:UNNotificationCategory =
+            createActionButtonsAndCategory(
+                notificationModel: notificationModel,
+                content: content)
+        
+        setWakeUpScreen(notificationModel: notificationModel, content: content)
+        setCriticalAlert(channel: channel, content: content)
+        
+        let requiredActions = listRequiredActions(notificationModel: notificationModel)
+        setUserInfoContent(notificationModel: notificationModel, requiredActions: requiredActions, content: content)
+        
+        notificationModel.nextValidDate = nextDate
+        
+        let trigger:UNNotificationTrigger? = nextDate == nil ? nil : notificationModel.schedule?.getUNNotificationTrigger()
+        let request = UNNotificationRequest(identifier: notificationModel.content!.id!.description, content: content, trigger: trigger)
+                
+        var previousCategories:[UNNotificationCategory] = []
+        previousCategories.append(contentsOf: [category])
+        UNUserNotificationCenter.current().setNotificationCategories(Set(previousCategories))            
+        Logger.shared.d(TAG, "Notification Category Identifier: \(category.identifier)")
+        
+        if(notificationModel.schedule != nil){
+            
+            notificationModel.schedule!.timeZone =
+                notificationModel.schedule!.timeZone ?? TimeZone.current
+            notificationModel.schedule!.createdDate = RealDateTime(
+                fromTimeZone: notificationModel.schedule!.timeZone!)
+            
+            if (nextDate != nil){
+                ScheduleManager.shared.saveSchedule(notification: notificationModel, nextDate: nextDate!.date)
+            } else {
+                _ = ScheduleManager.shared.removeSchedule(id: notificationModel.content!.id!)
+            }
+        }
+        
+        if SwiftUtils.isRunningOnExtension(), let id = notificationModel.content?.id {
+            _ = CancellationManager
+                .shared
+                .dismissNotification(byId: id)
+        }
+        
+        completion(notificationModel)
+        
+        if SwiftUtils.isRunningOnExtension() {
+            return
+        }
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if error != nil {
+                ExceptionFactory
+                        .shared
+                        .registerNewAwesomeException(
+                            className: NotificationIntervalModel.TAG,
+                            code: ExceptionCode.CODE_UNKNOWN_EXCEPTION,
+                            message: "Notification could not be created",
+                            detailedCode: ExceptionCode.DETAILED_UNEXPECTED_ERROR+".createNotification",
+                            originalException: error!)
+            }
+        }
+    }
+    
+    private func dateToCalendarTrigger(targetDate:Date?) -> UNCalendarNotificationTrigger? {
+        if(targetDate == nil){ return nil}
+        
+        let dateComponents = Calendar.current.dateComponents([.day, .month, .year, .hour, .minute, .second], from: targetDate!)
+        let trigger = UNCalendarNotificationTrigger( dateMatching: dateComponents, repeats: false )
+        return trigger
+    }
+    
+    private func buildNotificationContentFromModel(notificationModel:NotificationModel) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        return content
+    }
+    
+    public func setUserInfoContent(notificationModel:NotificationModel, requiredActions:String, content:UNMutableNotificationContent) {
+        
+        let pushData = notificationModel.toMap()
+        let jsonData = JsonUtils.toJson(pushData)
+        
+        content.userInfo[Definitions.NOTIFICATION_JSON] = jsonData
+        content.userInfo[Definitions.NOTIFICATION_AUTHENTICATION_REQUIRED] = requiredActions
+        content.userInfo[Definitions.NOTIFICATION_ID] = notificationModel.content!.id!
+        content.userInfo[Definitions.NOTIFICATION_CHANNEL_KEY] = notificationModel.content!.channelKey!
+        content.userInfo[Definitions.NOTIFICATION_GROUP_KEY] = notificationModel.content!.groupKey
+    }
+    
+    private func setCurrentTranslation(notificationModel: NotificationModel) {        
+        let languageCode = LocalizationManager.shared.getLocalization()
+        
+        if let titleLocKey = notificationModel.content?.titleLocKey {
+            if let format = titleLocKey.localized(forLanguageCode: languageCode) {
+                if let args = notificationModel.content?.titleLocArgs {
+                    notificationModel.content!.title = String(format: format, arguments: args)
+                } else {
+                    notificationModel.content!.title = format
+                }
+            }
+        }
+
+        if let bodyLocKey = notificationModel.content?.bodyLocKey {
+            if let format = bodyLocKey.localized(forLanguageCode: languageCode) {
+                if let args = notificationModel.content?.bodyLocArgs {
+                    notificationModel.content!.body = String(format: format, arguments: args)
+                } else {
+                    notificationModel.content!.body = format
+                }
+            }
+        }
+        
+        guard let localizations = notificationModel.localizations, !localizations.isEmpty else { return }
+        guard let matchedTranslationCode = getMatchedLanguageCode(localizations, languageCode: languageCode)
+        else { return }
+        
+        guard let localizationModel:NotificationLocalizationModel = localizations[matchedTranslationCode]
+        else { return }
+        
+        if !StringUtils.shared.isNullOrEmpty(localizationModel.title) {
+            notificationModel.content!.title = localizationModel.title
+        }
+        if !StringUtils.shared.isNullOrEmpty(localizationModel.body) {
+            notificationModel.content!.body = localizationModel.body
+        }
+        if !StringUtils.shared.isNullOrEmpty(localizationModel.summary) {
+            notificationModel.content!.summary = localizationModel.summary
+        }
+        if !StringUtils.shared.isNullOrEmpty(localizationModel.largeIcon) {
+            notificationModel.content!.largeIcon = localizationModel.largeIcon
+        }
+        if !StringUtils.shared.isNullOrEmpty(localizationModel.bigPicture) {
+            notificationModel.content!.bigPicture = localizationModel.bigPicture
+        }
+
+        guard
+            let buttonLabels:[String:String] = localizationModel.buttonLabels,
+            let actionButtons:[NotificationButtonModel] = notificationModel.actionButtons
+        else { return }
+        
+        for buttonModel in actionButtons {
+            if let label:String = buttonLabels[buttonModel.key!] {
+                buttonModel.label = label
+            }
+        }
+    }
+
+    private func getMatchedLanguageCode(_ localizations: [String: NotificationLocalizationModel], languageCode: String) -> String? {
+        let lowercaseLanguageCode = languageCode.lowercased(with: Locale(identifier: "en"))
+        if localizations.keys.contains(lowercaseLanguageCode) {
+            return lowercaseLanguageCode
+        }
+
+        let sortedCodeKeys = localizations.sorted(by: { $0.key < $1.key })
+        for (laguangeCode, _) in sortedCodeKeys {
+            let lowercaseKey = laguangeCode.lowercased(with: Locale(identifier: "en"))
+            if lowercaseKey == lowercaseLanguageCode {
+                return laguangeCode
+            }
+            if lowercaseKey.hasPrefix("\(lowercaseLanguageCode)-") {
+                return laguangeCode
+            }
+            if lowercaseLanguageCode.hasPrefix("\(lowercaseKey)-") {
+                return laguangeCode
+            }
+        }
+        return nil
+    }
+    
+    private func setTitle(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        content.title = notificationModel.content!.title?.withoutHtmlTags() ?? ""
+    }
+    
+    private func setBody(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        content.body = notificationModel.content!.body?.withoutHtmlTags() ?? ""
+    }
+    
+    private func setSummary(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        if #available(iOS 12.0, *) {
+            content.subtitle = notificationModel.content!.summary?.withoutHtmlTags() ?? ""
+        }
+    }
+    
+    private func setBadgeIndicator(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        if notificationModel.content?.badge != nil {
+            let badgeAmount:Int = max(notificationModel.content!.badge!, 0)
+            content.badge = NSNumber(value: badgeAmount)
+            if SwiftUtils.isRunningOnExtension() {
+                BadgeManager
+                    .shared
+                    .setGlobalBadgeCounterInStorage(
+                        newValue: badgeAmount)
+            }
+            return
+        }
+        if(channel.channelShowBadge!){
+            content.badge = NSNumber(value: BadgeManager.shared.incrementGlobalBadgeCounter())
+        }
+    }
+    
+    private func createActionButtonsAndCategory(notificationModel:NotificationModel, content:UNMutableNotificationContent) -> UNNotificationCategory{
+        
+        var categoryIdentifier:String = StringUtils.shared.isNullOrEmpty(content.categoryIdentifier) ?
+            Definitions.DEFAULT_CATEGORY_IDENTIFIER : content.categoryIdentifier
+        
+        var actions:[UNNotificationAction] = []
+        var dynamicCategory:[String] = [categoryIdentifier]
+        
+        if(notificationModel.actionButtons != nil){
+            for button in notificationModel.actionButtons! {
+                guard let key = button.key, let label = button.label 
+                else { continue }
+                
+                let action:UNNotificationAction?
+                var options:UNNotificationActionOptions = []
+                
+                if button.actionType == .Default {
+                    options.update(with: .foreground)
+                }
+                
+                if button.isDangerousOption ?? false {
+                    options.update(with: .destructive)
+                }
+                
+                if button.isAuthenticationRequired ?? false {
+                    options.update(with: .authenticationRequired)
+                }
+                
+                if button.requireInputText ?? false {
+                    action = UNTextInputNotificationAction(
+                        identifier:
+                            button.actionType == .DismissAction
+                                    ? UNNotificationDismissActionIdentifier.description
+                                    : key,
+                        title: label,
+                        options: options
+                    )
+                }
+                else {
+                    action = UNNotificationAction(
+                        identifier:
+                            button.actionType == .DismissAction
+                                    ? UNNotificationDismissActionIdentifier.description
+                                    : key,
+                        title: label,
+                        options: options
+                    )
+                }
+                
+                dynamicCategory.append("\(key)(\(label))")
+                actions.append(action!)
+            }
+        }
+        
+        categoryIdentifier = dynamicCategory.joined(separator: ",").uppercased()
+        
+        content.categoryIdentifier = categoryIdentifier
+        return UNNotificationCategory(
+            identifier: categoryIdentifier,
+            actions: actions,
+            intentIdentifiers: [],
+            options: .customDismissAction
+        )
+    }
+    
+    private func listRequiredActions(notificationModel:NotificationModel) -> String {
+        guard let actionButtons = notificationModel.actionButtons else { return "" }
+        var requiredActions:[String] = []
+        
+        for button in actionButtons {
+            guard let key = button.key, let label = button.label
+            else { continue }
+            
+            if button.isAuthenticationRequired ?? false {
+                requiredActions.append(key)
+            }
+        }
+        return requiredActions.joined(separator: ",").uppercased()
+    }
+    
+    private func getNextScheduleDate(notificationModel:NotificationModel?) -> RealDateTime? {
+        
+        if notificationModel?.schedule == nil { return nil }
+        var nextDate:Date?
+        switch true {
+            
+            case notificationModel!.schedule! is NotificationCalendarModel:
+                
+                let calendarModel:NotificationCalendarModel = notificationModel!.schedule! as! NotificationCalendarModel
+                guard let trigger:UNCalendarNotificationTrigger = calendarModel.getUNNotificationTrigger() as? UNCalendarNotificationTrigger else { return nil }
+                
+                nextDate = trigger.nextTriggerDate()
+                
+            case notificationModel!.schedule! is NotificationIntervalModel:
+                
+                let intervalModel:NotificationIntervalModel = notificationModel!.schedule! as! NotificationIntervalModel
+                guard let trigger:UNTimeIntervalNotificationTrigger = intervalModel.getUNNotificationTrigger() as? UNTimeIntervalNotificationTrigger else { return nil }
+                
+                nextDate = trigger.nextTriggerDate()
+                
+            default:
+                break
+        }
+        
+        if nextDate == nil {
+            return nil
+        }
+        
+        return RealDateTime.init(fromDate: nextDate!, inTimeZone: notificationModel!.schedule!.timeZone!)
+    }
+    
+    private func setVisibility(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setShowWhen(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+
+    private func setAutoCancel(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setTicker(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setOnlyAlertOnce(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+
+    private func setLockedNotification(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setImportance(channel:NotificationChannelModel, notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        notificationModel.importance = notificationModel.importance ?? channel.importance ?? .Default
+        if #available(iOS 15.0, *) {
+            switch notificationModel.importance! {
+                
+            case .None, .Min, .Low:
+                content.interruptionLevel = .passive
+                break
+                
+            case .Default:
+                content.interruptionLevel = .active
+                break
+                
+            case .High, .Max:
+                content.interruptionLevel = .timeSensitive
+                break
+            }
+        }
+    }
+
+    private func setSound(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        
+        switch notificationModel.importance ?? .Default {
+            
+            case .Default, .High, .Max:
+            if (notificationModel.content!.playSound ?? false) && (channel.playSound ?? false) {
+                
+                if(!StringUtils.shared.isNullOrEmpty(notificationModel.content!.customSound)){
+                    content.sound = AudioUtils.shared.getSoundFromSource(SoundPath: notificationModel.content!.customSound!)
+                    return
+                }
+                
+                if(!StringUtils.shared.isNullOrEmpty(channel.soundSource)){
+                    content.sound = AudioUtils.shared.getSoundFromSource(SoundPath: channel.soundSource!)
+                    return
+                }
+                
+                // TODO Get default iOS path sounds
+                switch channel.defaultRingtoneType {
+                    
+                    case .Ringtone:
+                        content.sound = UNNotificationSound.default
+                        return
+                        
+                    case .Alarm:
+                        content.sound = UNNotificationSound.default
+                        return
+                    
+                    case .Notification:
+                        content.sound = UNNotificationSound.default
+                        return
+                        
+                    case .none:
+                        content.sound = UNNotificationSound.default
+                        return
+                }
+            }
+            else {
+                content.sound = nil
+            }
+            break
+            
+            default:
+            break
+        }
+    }
+    
+    private func setVibrationPattern(channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setLights(channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // iOS does not have any lights
+    }
+    
+    private func setWakeUpScreen(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        if notificationModel.content?.wakeUpScreen ?? false {
+            if #available(iOS 15.0, *) {
+                content.interruptionLevel = .timeSensitive
+            }
+        }
+    }
+    
+    private func setCriticalAlert(channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        if channel.criticalAlerts ?? false {
+            if #available(iOS 15.0, *) {
+                content.interruptionLevel = .critical
+            }
+        }
+    }
+
+    private func setSmallIcon(channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setLargeIcon(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+    
+    private func setLayoutColor(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+        // TODO
+    }
+
+    private func setGrouping(notificationModel:NotificationModel, channel:NotificationChannelModel, content:UNMutableNotificationContent){
+
+        let groupKey:String? = getGroupKey(notificationModel: notificationModel, channel: channel)
+        if(!StringUtils.shared.isNullOrEmpty(groupKey)){
+            content.threadIdentifier = groupKey!
+        }
+    }
+
+    private func getGroupKey(notificationModel:NotificationModel, channel:NotificationChannelModel) -> String? {
+        return notificationModel.content!.groupKey ?? channel.groupKey
+    }
+
+    private func setLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent){
+        
+        setBigPictureLayout(notificationModel: notificationModel, content: content)
+        switch notificationModel.content!.notificationLayout {
+            
+            case .BigPicture:
+                return
+                
+            case .BigText:
+                setBigTextLayout(notificationModel: notificationModel, content: content)
+                return
+                
+            case .Inbox:
+                setInboxLayout(notificationModel: notificationModel, content: content)
+                return
+                
+            case .MediaPlayer:
+                setMediaPlayerLayout(notificationModel: notificationModel, content: content)
+                return
+                
+            case .Messaging:
+                setMessagingLayout(notificationModel: notificationModel, content: content, isGrouping: false)
+                return
+                
+            case .MessagingGroup:
+                setMessagingLayout(notificationModel: notificationModel, content: content, isGrouping: true)
+                return
+                        
+            case .ProgressBar:
+                setProgressBarLayout(notificationModel: notificationModel, content: content)
+                return
+                            
+            case .Default:
+                setDefaultLayout(notificationModel: notificationModel, content: content)
+                return
+            
+            default:
+                setDefaultLayout(notificationModel: notificationModel, content: content)
+                return
+        }
+    }
+    
+    private func getBitmapAttatchment(from bitmapSource:String?, rounding roundedBitmap: Bool) -> UNNotificationAttachment? {
+        
+        //let dimensionLimit:CGFloat = 1038.0
+        		
+        if !StringUtils.shared.isNullOrEmpty(bitmapSource) {
+            
+            if let image:UIImage =
+                BitmapUtils
+                    .shared
+                    .getBitmapFromSource(
+                        bitmapPath: bitmapSource!,
+                        roundedBitpmap: roundedBitmap
+            ){
+                
+                let fileManager = FileManager.default
+                let tmpSubFolderName = ProcessInfo.processInfo.globallyUniqueString
+                let tmpSubFolderURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(tmpSubFolderName, isDirectory: true)
+                
+                do {
+                    try fileManager.createDirectory(at: tmpSubFolderURL, withIntermediateDirectories: true, attributes: nil)
+                    let imageFileIdentifier = bitmapSource!.md5 + ".png"
+                    let fileURL = tmpSubFolderURL.appendingPathComponent(imageFileIdentifier)
+                    
+                    // JPEG is more memory efficient, but switches trasparency by white color
+                    let imageData = image.pngData()//.jpegData(compressionQuality: 0.9)//
+                    try imageData?.write(to: fileURL)
+                                        
+                    let imageAttachment = try UNNotificationAttachment.init(identifier: imageFileIdentifier, url: fileURL, options: nil)
+                    return imageAttachment
+                    
+                } catch {
+                    Logger.shared.e(TAG, error.localizedDescription)
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func setBigPictureLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "BigPicture"
+        
+        if(!StringUtils.shared.isNullOrEmpty(notificationModel.content?.bigPicture)){
+            
+            if let attachment:UNNotificationAttachment =
+                getBitmapAttatchment(
+                    from: notificationModel.content?.bigPicture,
+                    rounding: notificationModel.content?.roundedBigPicture ?? false
+            ){
+                content.attachments.append(attachment)
+                return
+            }
+        }
+        
+        if(!StringUtils.shared.isNullOrEmpty(notificationModel.content?.largeIcon)){
+            
+            if let attachment:UNNotificationAttachment =
+                    getBitmapAttatchment(
+                        from: notificationModel.content?.largeIcon,
+                        rounding: notificationModel.content?.roundedLargeIcon ?? false
+            ){
+                content.attachments.append(attachment)
+            }
+        }
+    }
+    
+    private func setBigTextLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "BigText"
+    }
+    
+    private func setProgressBarLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "ProgressBar"
+        Logger.shared.w(TAG, "ProgressBar layout are not available yet for iOS")
+    }
+    
+    private func setIndeterminateBarLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "IndeterminateBar"
+        Logger.shared.w(TAG, "IndeterminateBar layout are not available yet for iOS")
+    }
+    
+    private func setMediaPlayerLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "MediaPlayer"
+        Logger.shared.w(TAG, "MediaPlayer layout are not available yet for iOS")
+    }
+    
+    private func setInboxLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "Inbox"
+        Logger.shared.w(TAG, "Imbox layout are not available yet for iOS")
+    }
+    
+    private func setMessagingLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent, isGrouping:Bool) {
+        content.categoryIdentifier = "Messaging"
+        
+        content.threadIdentifier = (isGrouping ? "MessagingGR." : "Messaging.")+notificationModel.content!.channelKey!
+    }
+    
+    private func setDefaultLayout(notificationModel:NotificationModel, content:UNMutableNotificationContent) {
+        content.categoryIdentifier = "Default"
+    }
+    
+}
+
+//func awaitExectution(timeoutInSeconds: Int = 0, completion: @escaping ( DispatchGroup ) -> Void){
+//    let group = DispatchGroup()
+//    group.enter()
+//
+//    let workItem:DispatchWorkItem = DispatchWorkItem {
+//        DispatchQueue(label: UUID().uuidString).async {
+//            completion(group)
+//        }
+//    }
+//
+//    workItem.perform()
+//    if timeoutInSeconds == 0 {
+//        group.wait()
+//    }
+//    else {
+//        _ = group.wait(timeout: DispatchTime.now() + .seconds(timeoutInSeconds))
+//    }
+//}

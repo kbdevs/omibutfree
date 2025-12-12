@@ -1,0 +1,16 @@
+APPLICATION_EXTENSION_API_ONLY = NO
+BUILD_LIBRARY_FOR_DISTRIBUTION = YES
+CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO
+ENABLE_BITCODE = NO
+FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/IosAwnCore" "${PODS_CONFIGURATION_BUILD_DIR}/audioplayers_darwin" "${PODS_CONFIGURATION_BUILD_DIR}/awesome_notifications" "${PODS_CONFIGURATION_BUILD_DIR}/flutter_blue_plus_darwin" "${PODS_CONFIGURATION_BUILD_DIR}/opus_flutter_ios" "${PODS_CONFIGURATION_BUILD_DIR}/path_provider_foundation" "${PODS_CONFIGURATION_BUILD_DIR}/permission_handler_apple" "${PODS_CONFIGURATION_BUILD_DIR}/record_ios" "${PODS_CONFIGURATION_BUILD_DIR}/shared_preferences_foundation" "${PODS_CONFIGURATION_BUILD_DIR}/sqflite_darwin" "${PODS_ROOT}/../.symlinks/plugins/opus_flutter_ios/ios" "${PODS_ROOT}/../.symlinks/plugins/sherpa_onnx_ios/ios" "${PODS_XCFRAMEWORKS_BUILD_DIR}/opus_flutter_ios" "${PODS_XCFRAMEWORKS_BUILD_DIR}/sherpa_onnx_ios"
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) COCOAPODS=1
+HEADER_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/IosAwnCore/IosAwnCore.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/audioplayers_darwin/audioplayers_darwin.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/awesome_notifications/awesome_notifications.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/flutter_blue_plus_darwin/flutter_blue_plus_darwin.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/opus_flutter_ios/opus_flutter_ios.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/path_provider_foundation/path_provider_foundation.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/permission_handler_apple/permission_handler_apple.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/record_ios/record_ios.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/shared_preferences_foundation/shared_preferences_foundation.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/sqflite_darwin/sqflite_darwin.framework/Headers"
+LD_RUNPATH_SEARCH_PATHS = $(inherited) /usr/lib/swift
+LIBRARY_SEARCH_PATHS = $(inherited) $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)/ $(SDKROOT)/usr/lib/swift
+OTHER_LDFLAGS = $(inherited) -framework "CoreBluetooth" -framework "audioplayers_darwin" -framework "flutter_blue_plus_darwin" -framework "opus" -framework "opus_flutter_ios" -framework "path_provider_foundation" -framework "record_ios" -framework "shared_preferences_foundation" -framework "sherpa_onnx" -framework "sqflite_darwin"
+PODS_BUILD_DIR = ${BUILD_DIR}
+PODS_CONFIGURATION_BUILD_DIR = ${PODS_BUILD_DIR}/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)
+PODS_PODFILE_DIR_PATH = ${SRCROOT}/.
+PODS_ROOT = ${SRCROOT}/Pods
+PODS_XCFRAMEWORKS_BUILD_DIR = $(PODS_CONFIGURATION_BUILD_DIR)/XCFrameworkIntermediates
+USE_RECURSIVE_SCRIPT_INPUTS_IN_SCRIPT_PHASES = YES

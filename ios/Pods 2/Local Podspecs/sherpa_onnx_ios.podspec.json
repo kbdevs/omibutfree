@@ -1,0 +1,30 @@
+{
+  "name": "sherpa_onnx_ios",
+  "version": "1.12.19",
+  "summary": "A new Flutter FFI plugin project.",
+  "description": "A new Flutter FFI plugin project.",
+  "homepage": "https://github.com/k2-fsa/sherpa-onnx",
+  "license": {
+    "file": "../LICENSE"
+  },
+  "authors": {
+    "Fangjun Kuang": "csukuangfj@gmail.com"
+  },
+  "source": {
+    "path": "."
+  },
+  "dependencies": {
+    "Flutter": []
+  },
+  "platforms": {
+    "ios": "13.0"
+  },
+  "preserve_paths": "sherpa_onnx.xcframework/**/*",
+  "vendored_frameworks": "sherpa_onnx.xcframework",
+  "pod_target_xcconfig": {
+    "DEFINES_MODULE": "YES",
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": "i386"
+  },
+  "swift_versions": "5.0",
+  "swift_version": "5.0"
+}

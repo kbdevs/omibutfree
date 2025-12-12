@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../services/ble_service.dart';
 import '../services/settings_service.dart';
+import 'device_settings_page.dart'; // Added
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -65,6 +66,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 return Column(
                   children: [
                     ListTile(
+                      onTap: isConnected ? () {
+                         Navigator.push(
+                           context, 
+                           MaterialPageRoute(builder: (_) => const DeviceSettingsPage())
+                         );
+                      } : null,
                       contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                       leading: Container(
                         padding: const EdgeInsets.all(12),
@@ -78,8 +85,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                       title: Text(savedName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: Text(isConnected ? 'Connected & Ready' : 'Saved Device', 
+                      subtitle: Text(isConnected ? 'Connected • Tap to Configure' : 'Saved Device', 
                         style: TextStyle(color: isConnected ? const Color(0xFF6C5CE7) : null)),
+                      trailing: isConnected ? Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.5)) : null,
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -138,15 +146,43 @@ class _SettingsPageState extends State<SettingsPage> {
                   onChanged: (value) => setState(() => SettingsService.transcriptionMode = value!),
                 ),
                 Divider(height: 1, color: theme.dividerColor.withOpacity(0.1)),
+
                 _buildRadioTile(
                   title: 'Local (Whisper)',
-                  subtitle: 'Offline, standard accuracy',
+                  subtitle: 'OpenAI Whisper, high accuracy',
                   value: 'whisper',
                   groupValue: SettingsService.transcriptionMode,
-                  icon: Icons.smartphone_outlined,
+                  icon: Icons.record_voice_over_outlined,
                   onChanged: (value) => setState(() => SettingsService.transcriptionMode = value!),
                 ),
+                
+                // Whisper model size selector
+                if (SettingsService.useWhisper)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(56, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        Text('Model Size:', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7))),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'tiny', label: Text('Tiny'), icon: Icon(Icons.speed, size: 16)),
+                              ButtonSegment(value: 'base', label: Text('Base'), icon: Icon(Icons.high_quality, size: 16)),
+                            ],
+                            selected: {SettingsService.whisperModelSize},
+                            onSelectionChanged: (values) => setState(() => SettingsService.whisperModelSize = values.first),
+                            style: ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
                 Divider(height: 1, color: theme.dividerColor.withOpacity(0.1)),
+
                 _buildRadioTile(
                   title: 'Local (Sherpa-ONNX)',
                   subtitle: 'Real-time streaming ASR',
@@ -160,41 +196,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 24),
 
-          // Whisper Model Selection
-          if (SettingsService.useWhisper) ...[
-            _buildSectionHeader('Whisper Model Size'),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: SettingsService.whisperModel,
-                      decoration: const InputDecoration(
-                        labelText: 'Select Model',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                      dropdownColor: const Color(0xFF2D2D2D),
-                      items: const [
-                        DropdownMenuItem(value: 'tiny', child: Text('Tiny (Fastest)')),
-                        DropdownMenuItem(value: 'base', child: Text('Base (Balanced)')),
-                        DropdownMenuItem(value: 'small', child: Text('Small (Better)')),
-                        DropdownMenuItem(value: 'medium', child: Text('Medium (Best)')),
-                      ],
-                      onChanged: (value) => setState(() => SettingsService.whisperModel = value!),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Larger models are more accurate but drain battery faster.',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
+
 
           // Deepgram API Key
           if (SettingsService.useDeepgram) ...[

@@ -1,0 +1,6 @@
+framework module awesome_notifications {
+  umbrella header "awesome_notifications-umbrella.h"
+
+  export *
+  module * { export * }
+}

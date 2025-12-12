@@ -1,0 +1,47 @@
+Resolving dependencies...
+Downloading packages...
+  characters 1.4.0 (1.4.1 available)
+  flutter_blue_plus 1.36.8 (2.0.2 available)
+  flutter_blue_plus_android 7.0.4 (8.0.1 available)
+  flutter_blue_plus_darwin 7.0.3 (8.0.1 available)
+  flutter_blue_plus_linux 7.0.3 (8.0.1 available)
+  flutter_blue_plus_platform_interface 7.0.0 (8.0.1 available)
+  flutter_blue_plus_web 7.0.2 (8.0.1 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  js 0.6.7 (0.7.2 available)
+  lints 5.1.1 (6.0.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  test_api 0.7.7 (0.7.8 available)
+  web_socket_channel 2.4.0 (3.0.3 available)
+Got dependencies!
+16 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Building com.omilocal.omiLocal for device (ios-release)...
+Running Xcode build...                                          
+Xcode build done.                                            3.9s
+Failed to build iOS app
+Error output from Xcode build:
+↳
+    ** BUILD FAILED **
+
+
+Xcode's output:
+↳
+    Writing result bundle at path:
+    	/var/folders/s8/ysgfzq1j2zqg8kbwk3gx6bsh0000gn/T/flutter_tools.NEIRHb/flutter_ios_build_temp_dirYliC6v/temporary_xcresult_bundle
+
+    Target release_unpack_ios failed: Exception: Failed to codesign /Users/kb/Documents/Code/Coding2/omibutfree/omi_local/build/ios/Release-iphoneos/Flutter.framework/Flutter with identity -.
+    /Users/kb/Documents/Code/Coding2/omibutfree/omi_local/build/ios/Release-iphoneos/Flutter.framework/Flutter: replacing existing signature
+    /Users/kb/Documents/Code/Coding2/omibutfree/omi_local/build/ios/Release-iphoneos/Flutter.framework/Flutter: resource fork, Finder information, or similar detritus not allowed
+    Failed to package /Users/kb/Documents/Code/Coding2/omibutfree/omi_local.
+    Command PhaseScriptExecution failed with a nonzero exit code
+    /Users/kb/Documents/Code/Coding2/omibutfree/omi_local/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 9.0, but the range of supported deployment target versions is 12.0 to 26.1.99. (in target 'permission_handler_apple-permission_handler_apple_privacy' from project 'Pods')
+    /Users/kb/Documents/Code/Coding2/omibutfree/omi_local/ios/Pods/Pods.xcodeproj: warning: MODULEMAP_FILE has no effect if DEFINES_MODULE is not set (in target 'awesome_notifications' from project 'Pods')
+    note: Run script build phase 'Thin Binary' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Runner' from project 'Runner')
+    note: Run script build phase 'Run Script' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Runner' from project 'Runner')
+
+Encountered error while building for device.

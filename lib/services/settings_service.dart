@@ -33,14 +33,15 @@ class SettingsService {
   static String get transcriptionMode => prefs.getString('transcription_mode') ?? 'cloud';
   static set transcriptionMode(String value) => prefs.setString('transcription_mode', value);
   
-  static bool get useLocalTranscription => transcriptionMode == 'whisper' || transcriptionMode == 'sherpa';
-  static bool get useWhisper => transcriptionMode == 'whisper';
-  static bool get useSherpa => transcriptionMode == 'sherpa';
-  static bool get useDeepgram => transcriptionMode == 'cloud';
+  // Whisper model size: 'tiny' or 'base'
+  static String get whisperModelSize => prefs.getString('whisper_model_size') ?? 'tiny';
+  static set whisperModelSize(String value) => prefs.setString('whisper_model_size', value);
   
-  // Whisper model selection: tiny, base, small, medium
-  static String get whisperModel => prefs.getString('whisper_model') ?? 'base';
-  static set whisperModel(String value) => prefs.setString('whisper_model', value);
+  static bool get useLocalTranscription => transcriptionMode == 'sherpa' || transcriptionMode == 'whisper';
+  static bool get useSherpa => transcriptionMode == 'sherpa';
+  static bool get useWhisper => transcriptionMode == 'whisper';
+  static bool get useDeepgram => transcriptionMode == 'cloud';
+
   
   // Saved device for auto-connect
   static String get savedDeviceId => prefs.getString('saved_device_id') ?? '';

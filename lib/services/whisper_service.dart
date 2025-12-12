@@ -1,79 +1,152 @@
-/// Local Whisper transcription service using whisper.cpp
+/// Whisper transcription service using Sherpa-ONNX offline recognition
+/// Supports tiny and base model sizes for local speech-to-text
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:whisper_flutter_new/whisper_flutter_new.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:archive/archive.dart';
 import '../models/conversation.dart';
 
 class WhisperService {
-  Whisper? _whisper;
+  sherpa.OfflineRecognizer? _recognizer;
   bool _isInitialized = false;
   bool _isProcessing = false;
   
-  final String model;
   final Function(List<TranscriptSegment>)? onTranscript;
   final Function(String)? onError;
   
-  // Buffer for accumulating audio data
-  final List<int> _audioBuffer = [];
-  Timer? _processTimer;
-  
-  // Process audio every 5 seconds
-  static const Duration processInterval = Duration(seconds: 5);
-  
-  // Audio format settings (matching mic_service.dart PCM16 @ 16kHz mono)
+  // Audio format settings
   static const int sampleRate = 16000;
-  static const int channels = 1;
-  static const int bitsPerSample = 16;
   
-  // Patterns to filter out from transcripts
-  static final RegExp _filterPattern = RegExp(
-    r'\[BLANK_AUDIO\]|\[INAUDIBLE\]|\(BLANK_AUDIO\)|\(INAUDIBLE\)',
-    caseSensitive: false,
-  );
+  // Model info - configurable size
+  final String modelSize; // 'tiny' or 'base'
+  
+  String get modelName => 'sherpa-onnx-whisper-$modelSize';
+  String get modelUrl => 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/$modelName.tar.bz2';
+  
+  // Audio buffer for batch processing
+  List<double> _audioBuffer = [];
+  Timer? _processTimer;
+  static const Duration _processInterval = Duration(seconds: 3); // Process every 3 seconds
   
   WhisperService({
-    this.model = 'base',  // Changed from tiny to base for better quality
     this.onTranscript,
     this.onError,
+    this.modelSize = 'tiny', // Default to tiny for faster loading
   });
 
   bool get isInitialized => _isInitialized;
   bool get isProcessing => _isProcessing;
-  
-  /// Convert string model name to WhisperModel enum
-  WhisperModel _getWhisperModel(String modelName) {
-    switch (modelName.toLowerCase()) {
-      case 'tiny':
-        return WhisperModel.tiny;
-      case 'base':
-        return WhisperModel.base;
-      case 'small':
-        return WhisperModel.small;
-      case 'medium':
-        return WhisperModel.medium;
-      case 'large':
-        return WhisperModel.largeV1;
-      default:
-        return WhisperModel.base;
+
+  /// Get the model directory path
+  Future<String> _getModelDir() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/whisper_models/$modelName';
+  }
+
+  /// Check if model is downloaded
+  Future<bool> _isModelDownloaded() async {
+    final modelDir = await _getModelDir();
+    final encoderFile = File('$modelDir/$modelSize-encoder.onnx');
+    return encoderFile.existsSync();
+  }
+
+  /// Download and extract the model
+  Future<void> _downloadModel() async {
+    debugPrint('Downloading Whisper $modelSize model...');
+    
+    try {
+      final modelDir = await _getModelDir();
+      final modelDirPath = Directory(modelDir);
+      if (!modelDirPath.existsSync()) {
+        modelDirPath.createSync(recursive: true);
+      }
+      
+      // Download tar.bz2 file
+      debugPrint('Downloading from: $modelUrl');
+      final response = await http.get(Uri.parse(modelUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download model: ${response.statusCode}');
+      }
+      
+      debugPrint('Whisper model downloaded, extracting...');
+      
+      // Save and extract
+      final archivePath = '$modelDir/model.tar.bz2';
+      await File(archivePath).writeAsBytes(response.bodyBytes);
+      
+      // Extract using bzip2 + tar
+      final bytes = await File(archivePath).readAsBytes();
+      final bz2Decoded = BZip2Decoder().decodeBytes(bytes);
+      final archive = TarDecoder().decodeBytes(bz2Decoded);
+      
+      for (final file in archive) {
+        final filename = file.name;
+        if (file.isFile) {
+          // Remove the top-level directory from path
+          final relativePath = filename.split('/').skip(1).join('/');
+          if (relativePath.isNotEmpty) {
+            final outFile = File('$modelDir/$relativePath');
+            outFile.createSync(recursive: true);
+            outFile.writeAsBytesSync(file.content as List<int>);
+          }
+        }
+      }
+      
+      // Cleanup archive
+      await File(archivePath).delete();
+      debugPrint('Whisper model extraction complete');
+      
+    } catch (e) {
+      debugPrint('Whisper model download error: $e');
+      rethrow;
     }
   }
 
-  /// Initialize Whisper with the specified model
+  /// Initialize Whisper with offline ASR model
   Future<void> initialize() async {
     if (_isInitialized) return;
     
     try {
-      debugPrint('Initializing Whisper with model: $model');
+      debugPrint('Initializing Whisper $modelSize...');
       
-      _whisper = Whisper(
-        model: _getWhisperModel(model),
+      // Check if model is downloaded
+      if (!await _isModelDownloaded()) {
+        debugPrint('Whisper model not found, downloading...');
+        await _downloadModel();
+      }
+      
+      final modelDir = await _getModelDir();
+      debugPrint('Using Whisper model from: $modelDir');
+      
+      // Initialize sherpa-onnx bindings first
+      sherpa.initBindings();
+      
+      // Configure the Whisper model
+      final whisperConfig = sherpa.OfflineWhisperModelConfig(
+        encoder: '$modelDir/$modelSize-encoder.onnx',
+        decoder: '$modelDir/$modelSize-decoder.onnx',
       );
       
+      final modelConfig = sherpa.OfflineModelConfig(
+        whisper: whisperConfig,
+        tokens: '$modelDir/$modelSize-tokens.txt',
+        debug: false,
+        numThreads: 2,
+      );
+      
+      final config = sherpa.OfflineRecognizerConfig(
+        model: modelConfig,
+      );
+      
+      _recognizer = sherpa.OfflineRecognizer(config);
+      
       _isInitialized = true;
-      debugPrint('Whisper initialized successfully');
+      debugPrint('Whisper $modelSize initialized successfully');
+      
     } catch (e) {
       debugPrint('Failed to initialize Whisper: $e');
       onError?.call('Failed to initialize Whisper: $e');
@@ -88,129 +161,79 @@ class WhisperService {
       return;
     }
     
-    _audioBuffer.clear();
+    _audioBuffer = [];
     _isProcessing = true;
     
-    // Start periodic processing
-    _processTimer = Timer.periodic(processInterval, (_) => _processBuffer());
+    // Start periodic processing timer
+    _processTimer = Timer.periodic(_processInterval, (_) => _processBuffer());
+    
+    debugPrint('Whisper processing started');
   }
 
   /// Add audio data to buffer (expects PCM16 format)
   void addAudio(Uint8List audioData) {
-    if (!_isProcessing) return;
-    _audioBuffer.addAll(audioData);
-  }
-
-  /// Create a proper WAV file from PCM data
-  Future<File> _createWavFile(Uint8List pcmData) async {
-    final tempDir = await getTemporaryDirectory();
-    final tempFile = File('${tempDir.path}/whisper_temp_${DateTime.now().millisecondsSinceEpoch}.wav');
-    
-    // WAV file header
-    final dataSize = pcmData.length;
-    final fileSize = dataSize + 36; // 36 bytes for header minus 8 for RIFF/size
-    final byteRate = sampleRate * channels * bitsPerSample ~/ 8;
-    final blockAlign = channels * bitsPerSample ~/ 8;
-    
-    final header = BytesBuilder();
-    
-    // RIFF header
-    header.add('RIFF'.codeUnits);
-    header.add(_int32ToBytes(fileSize));
-    header.add('WAVE'.codeUnits);
-    
-    // fmt subchunk
-    header.add('fmt '.codeUnits);
-    header.add(_int32ToBytes(16)); // Subchunk1Size for PCM
-    header.add(_int16ToBytes(1)); // AudioFormat: 1 = PCM
-    header.add(_int16ToBytes(channels));
-    header.add(_int32ToBytes(sampleRate));
-    header.add(_int32ToBytes(byteRate));
-    header.add(_int16ToBytes(blockAlign));
-    header.add(_int16ToBytes(bitsPerSample));
-    
-    // data subchunk
-    header.add('data'.codeUnits);
-    header.add(_int32ToBytes(dataSize));
-    
-    // Combine header and PCM data
-    final wavData = BytesBuilder();
-    wavData.add(header.toBytes());
-    wavData.add(pcmData);
-    
-    await tempFile.writeAsBytes(wavData.toBytes());
-    return tempFile;
-  }
-  
-  Uint8List _int32ToBytes(int value) {
-    return Uint8List(4)..buffer.asByteData().setInt32(0, value, Endian.little);
-  }
-  
-  Uint8List _int16ToBytes(int value) {
-    return Uint8List(2)..buffer.asByteData().setInt16(0, value, Endian.little);
-  }
-
-  /// Process accumulated audio buffer
-  Future<void> _processBuffer() async {
-    if (_audioBuffer.isEmpty || !_isInitialized || _whisper == null) return;
-    
-    // Need at least 1 second of audio (16000 samples * 2 bytes = 32000 bytes)
-    if (_audioBuffer.length < 32000) return;
+    if (!_isProcessing || _recognizer == null) return;
     
     try {
-      // Copy buffer and clear
-      final audioData = Uint8List.fromList(_audioBuffer);
-      _audioBuffer.clear();
+      // Convert PCM16 bytes to float samples
+      final samples = _bytesToFloatSamples(audioData);
+      _audioBuffer.addAll(samples);
+    } catch (e) {
+      debugPrint('Whisper audio buffer error: $e');
+    }
+  }
+  
+  /// Convert PCM16 bytes to float samples
+  List<double> _bytesToFloatSamples(Uint8List bytes) {
+    // Ensure we have an even number of bytes
+    final validLength = bytes.length - (bytes.length % 2);
+    final int16List = Int16List.view(bytes.buffer, 0, validLength ~/ 2);
+    final floatSamples = <double>[];
+    for (int i = 0; i < int16List.length; i++) {
+      floatSamples.add(int16List[i] / 32768.0);
+    }
+    return floatSamples;
+  }
+
+  /// Process the audio buffer
+  void _processBuffer() {
+    if (!_isProcessing || _recognizer == null || _audioBuffer.isEmpty) return;
+    
+    try {
+      // Need at least 0.5 seconds of audio to process
+      final minSamples = sampleRate ~/ 2;
+      if (_audioBuffer.length < minSamples) return;
       
-      debugPrint('Processing ${audioData.length} bytes of audio with Whisper');
+      // Take the buffer and clear it
+      final samples = Float32List.fromList(_audioBuffer.map((e) => e.toDouble()).toList());
+      _audioBuffer = [];
       
-      // Create proper WAV file
-      final wavFile = await _createWavFile(audioData);
+      debugPrint('Processing ${samples.length} samples with Whisper...');
       
-      // Transcribe
-      final transcription = await _whisper!.transcribe(
-        transcribeRequest: TranscribeRequest(
-          audio: wavFile.path,
-          isTranslate: false,
-          isNoTimestamps: false,
-          splitOnWord: true,
-          language: 'en',  // English only
-        ),
-      );
+      // Create stream and process
+      final stream = _recognizer!.createStream();
+      stream.acceptWaveform(sampleRate: sampleRate, samples: samples);
+      _recognizer!.decode(stream);
       
-      // Clean up temp file
-      try {
-        if (await wavFile.exists()) {
-          await wavFile.delete();
-        }
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      final result = _recognizer!.getResult(stream);
+      stream.free();
       
-      // Convert to TranscriptSegment
-      if (transcription.text.isNotEmpty) {
-        // Filter out BLANK_AUDIO and other noise markers
-        String cleanedText = transcription.text
-            .replaceAll(_filterPattern, '')
-            .trim();
+      if (result.text.isNotEmpty) {
+        final text = result.text.trim();
+        debugPrint('Whisper recognized: $text');
         
-        // Only emit if there's actual content after filtering
-        if (cleanedText.isNotEmpty) {
-          debugPrint('Whisper transcribed: $cleanedText');
-          final segment = TranscriptSegment(
-            text: cleanedText,
-            speakerId: 0,  // Whisper doesn't do diarization
-            startTime: 0,
-            endTime: 0,
-          );
-          onTranscript?.call([segment]);
-        } else {
-          debugPrint('Whisper: filtered out blank audio segment');
-        }
+        // Emit as segment
+        final segment = TranscriptSegment(
+          text: text,
+          speakerId: 0,
+          startTime: 0,
+          endTime: 0,
+        );
+        
+        onTranscript?.call([segment]);
       }
     } catch (e) {
-      debugPrint('Whisper transcription error: $e');
-      onError?.call('Whisper error: $e');
+      debugPrint('Whisper processing error: $e');
     }
   }
 
@@ -221,16 +244,18 @@ class WhisperService {
     _isProcessing = false;
     
     // Process any remaining audio
-    if (_audioBuffer.isNotEmpty && _audioBuffer.length >= 32000) {
+    if (_audioBuffer.isNotEmpty) {
       _processBuffer();
     }
-    _audioBuffer.clear();
+    
+    debugPrint('Whisper processing stopped');
   }
 
   /// Dispose resources
   void dispose() {
     stopProcessing();
-    _whisper = null;
+    _recognizer?.free();
+    _recognizer = null;
     _isInitialized = false;
   }
 }

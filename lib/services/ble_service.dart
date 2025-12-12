@@ -10,6 +10,11 @@ const String audioDataStreamCharacteristicUuid = '19b10001-e8f2-537e-4f6c-d10476
 const String audioCodecCharacteristicUuid = '19b10002-e8f2-537e-4f6c-d104768a1214';
 const String batteryServiceUuid = '180f';
 const String batteryLevelCharacteristicUuid = '2a19';
+const String settingsServiceUuid = '19b10010-e8f2-537e-4f6c-d104768a1214';
+const String settingsDimRatioCharacteristicUuid = '19b10011-e8f2-537e-4f6c-d104768a1214';
+const String settingsMicGainCharacteristicUuid = '19b10012-e8f2-537e-4f6c-d104768a1214';
+const String buttonServiceUuid = '23ba7924-0000-1000-7450-346eac492e92';
+const String buttonTriggerCharacteristicUuid = '23ba7925-0000-1000-7450-346eac492e92';
 
 enum DeviceConnectionState {
   disconnected,
@@ -50,6 +55,9 @@ class BleService {
 
   final _batteryController = StreamController<int>.broadcast();
   Stream<int> get batteryStream => _batteryController.stream;
+
+  final _buttonController = StreamController<List<int>>.broadcast();
+  Stream<List<int>> get buttonStream => _buttonController.stream;
 
   bool get isConnected => _state == DeviceConnectionState.connected;
   String? get connectedDeviceId => _connectedDevice?.remoteId.str;
@@ -111,7 +119,8 @@ class BleService {
 
       await for (final results in FlutterBluePlus.scanResults) {
         devices = results
-            .where((r) => r.device.platformName.isNotEmpty) // Only show devices with names
+            .where((r) => r.device.platformName.isNotEmpty)
+            .where((r) => r.device.platformName.toLowerCase().contains('omi')) // Filter for Omi devices
             .map((r) => BleDevice(
               device: r.device,
               name: r.device.platformName,
@@ -172,6 +181,22 @@ class BleService {
         return false;
       }
 
+      // Find and subscribe to button characteristic
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == buttonServiceUuid.toLowerCase()) {
+          for (var char in service.characteristics) {
+             if (char.uuid.toString().toLowerCase() == buttonTriggerCharacteristicUuid.toLowerCase()) {
+               await char.setNotifyValue(true);
+               char.onValueReceived.listen((value) {
+                 if (value.isNotEmpty) _buttonController.add(value);
+               });
+               debugPrint('Subscribed to button events');
+               break;
+             }
+          }
+        }
+      }
+
       _state = DeviceConnectionState.connected;
       _stateController.add(_state);
       
@@ -183,6 +208,90 @@ class BleService {
       _stateController.add(_state);
       return false;
     }
+  }
+
+  /// Set Microphone Gain (0-100)
+  Future<void> setMicGain(int gain) async {
+    if (_connectedDevice == null) return;
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == settingsServiceUuid) {
+          for (var char in service.characteristics) {
+             if (char.uuid.toString().toLowerCase() == settingsMicGainCharacteristicUuid) {
+               await char.write([gain.clamp(0, 100)]);
+               debugPrint('Set Mic Gain to $gain');
+               return;
+             }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error setting mic gain: $e');
+    }
+  }
+
+  /// Get Microphone Gain
+  Future<int?> getMicGain() async {
+    if (_connectedDevice == null) return null;
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == settingsServiceUuid) {
+          for (var char in service.characteristics) {
+             if (char.uuid.toString().toLowerCase() == settingsMicGainCharacteristicUuid) {
+               final value = await char.read();
+               if (value.isNotEmpty) return value[0];
+             }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting mic gain: $e');
+    }
+    return null;
+  }
+
+  /// Set LED Dim Ratio (0-100)
+  Future<void> setLedDimRatio(int ratio) async {
+    if (_connectedDevice == null) return;
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == settingsServiceUuid) {
+          for (var char in service.characteristics) {
+             if (char.uuid.toString().toLowerCase() == settingsDimRatioCharacteristicUuid) {
+               await char.write([ratio.clamp(0, 100)]);
+               debugPrint('Set LED Dim Ratio to $ratio');
+               return;
+             }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error setting LED dim ratio: $e');
+    }
+  }
+
+  /// Get LED Dim Ratio
+  Future<int?> getLedDimRatio() async {
+    if (_connectedDevice == null) return null;
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == settingsServiceUuid) {
+          for (var char in service.characteristics) {
+             if (char.uuid.toString().toLowerCase() == settingsDimRatioCharacteristicUuid) {
+               final value = await char.read();
+               if (value.isNotEmpty) return value[0];
+             }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting LED dim ratio: $e');
+    }
+    return null;
   }
 
   /// Start listening for audio data

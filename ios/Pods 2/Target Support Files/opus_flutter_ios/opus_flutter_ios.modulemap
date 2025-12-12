@@ -1,0 +1,6 @@
+framework module opus_flutter_ios {
+  umbrella header "opus_flutter_ios-umbrella.h"
+
+  export *
+  module * { export * }
+}

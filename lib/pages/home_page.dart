@@ -178,7 +178,7 @@ class _DeviceTabState extends State<DeviceTab> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Connect your Omi device or use your phone mic\nto capture and transcribe conversations.',
+          'Connect your Omi device\nto capture and transcribe conversations.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.6), height: 1.5),
         ),
@@ -218,26 +218,14 @@ class _DeviceTabState extends State<DeviceTab> {
           const SizedBox(height: 24),
         ],
         
-        // Options
-        if (provider.isListening && provider.isUsingPhoneMic) ...[
-          _buildPhoneMicListeningView(provider),
-        ] else ...[
-          _buildActionCard(
-            title: 'Use Omi Device',
-            subtitle: 'Connect via Bluetooth for hands-free recording',
-            icon: Icons.bluetooth_audio,
-            color: const Color(0xFF6C5CE7),
-            onTap: _startScan,
-          ),
-          const SizedBox(height: 16),
-          _buildActionCard(
-            title: 'Use Phone Mic',
-            subtitle: 'Record directly using this device',
-            icon: Icons.smartphone,
-            color: const Color(0xFFA29BFE),
-            onTap: SettingsService.hasApiKeys ? () => _startMicListening(provider) : null,
-          ),
-        ],
+        // Connect to Omi Device
+        _buildActionCard(
+          title: 'Use Omi Device',
+          subtitle: 'Connect via Bluetooth for hands-free recording',
+          icon: Icons.bluetooth_audio,
+          color: const Color(0xFF6C5CE7),
+          onTap: _startScan,
+        ),
         
         // Scanning overlay
         if (_isScanning) ...[
@@ -255,7 +243,7 @@ class _DeviceTabState extends State<DeviceTab> {
             child: ListTile(
               leading: const Icon(Icons.bluetooth),
               title: Text(device.name.isNotEmpty ? device.name : 'Unknown Device'),
-              subtitle: Text(device.id),
+              subtitle: Text(device.device.remoteId.str),
               trailing: ElevatedButton(
                 onPressed: () => _connectToDevice(device, provider),
                 style: ElevatedButton.styleFrom(
@@ -330,166 +318,33 @@ class _DeviceTabState extends State<DeviceTab> {
     );
   }
 
-  Widget _buildPhoneMicListeningView(AppProvider provider) {
-    return Expanded(
-      child: Column(
-        children: [
-          // Listening status banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.deepPurple.shade50,
-            child: Row(
-              children: [
-                const _PulsingDot(),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.mic, size: 16, color: Colors.deepPurple.shade700),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Using Phone Mic',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        'Saves automatically after 2 min silence',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.deepPurple.shade400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Manual save button
-                if (provider.liveSegments.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: provider.manualSaveConversation,
-                    icon: const Icon(Icons.save, size: 18),
-                    label: const Text('Save Now'),
-                  ),
-              ],
-            ),
-          ),
 
-          // Stop button
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: ElevatedButton.icon(
-              onPressed: provider.stopListening,
-              icon: const Icon(Icons.stop),
-              label: const Text('Stop Listening'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 60),
-              ),
-            ),
-          ),
-
-          // Live transcript
-          if (provider.liveSegments.isNotEmpty)
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                padding: const EdgeInsets.all(16),
+  Widget _buildConnectedView(AppProvider provider) {
+    return Column(
+      children: [
+        // Connected Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(Icons.check, color: Colors.green, size: 20),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Current Conversation',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${provider.liveSegments.length} segments',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: provider.liveSegments.length,
-                        reverse: false,
-                        itemBuilder: (context, index) {
-                          final segment = provider.liveSegments[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getSpeakerColor(segment.speakerId),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'S${segment.speakerId}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(segment.text)),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                    Text('Connected', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Omi Device Ready', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   ],
                 ),
               ),
-            )
-          else
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.graphic_eq, size: 64, color: Colors.grey.shade300),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Waiting for speech...',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConnectedView(AppProvider provider) {
               TextButton(
                 onPressed: provider.disconnectDevice,
                 child: const Text('Disconnect'),
@@ -501,12 +356,42 @@ class _DeviceTabState extends State<DeviceTab> {
         // Listening status banner
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: provider.isListening 
-              ? Colors.deepPurple.withOpacity(0.15) 
-              : Colors.grey.withOpacity(0.1),
+          color: provider.isLoadingModel
+              ? Colors.orange.withOpacity(0.15)
+              : provider.isListening 
+                  ? Colors.deepPurple.withOpacity(0.15) 
+                  : Colors.grey.withOpacity(0.1),
           child: Row(
             children: [
-              if (provider.isListening) ...[
+              if (provider.isLoadingModel) ...[
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Loading transcription model...',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      Text(
+                        'This may take a moment on first use',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (provider.isListening) ...[
                 const _PulsingDot(),
                 const SizedBox(width: 12),
                 Expanded(
@@ -705,17 +590,7 @@ class _DeviceTabState extends State<DeviceTab> {
     }
   }
 
-  Future<void> _startMicListening(AppProvider provider) async {
-    try {
-      await provider.startListeningWithMic();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    }
-  }
+
 }
 
 /// Pulsing red dot indicator for active recording

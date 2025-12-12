@@ -11,6 +11,8 @@ class OpusDecoderService {
   // Omi device audio format
   static const int sampleRate = 16000;
   static const int channels = 1;
+
+  static bool _libraryInitialized = false;
   
   OpusDecoderService();
   
@@ -21,8 +23,11 @@ class OpusDecoderService {
     if (_isInitialized) return;
     
     try {
-      // Initialize opus library
-      initOpus(await opus_flutter.load());
+      // Initialize opus library (only once per app lifecycle)
+      if (!_libraryInitialized) {
+        initOpus(await opus_flutter.load());
+        _libraryInitialized = true;
+      }
       
       // Create decoder for mono 16kHz audio
       _decoder = SimpleOpusDecoder(

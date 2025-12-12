@@ -1,0 +1,30 @@
+{
+  "name": "opus_flutter_ios",
+  "version": "0.0.2",
+  "summary": "libopus wrappers for flutter in iOS.",
+  "description": "libopus wrappers for flutter in iOS.",
+  "homepage": "https://epnw.eu",
+  "license": {
+    "file": "../LICENSE"
+  },
+  "authors": {
+    "EPNW GmbH": "contact@epnw.eu"
+  },
+  "source": {
+    "path": "."
+  },
+  "source_files": "Classes/**/*",
+  "dependencies": {
+    "Flutter": []
+  },
+  "platforms": {
+    "ios": "13.0"
+  },
+  "vendored_frameworks": "opus.xcframework",
+  "pod_target_xcconfig": {
+    "DEFINES_MODULE": "YES",
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": "i386"
+  },
+  "swift_versions": "5.1",
+  "swift_version": "5.1"
+}
