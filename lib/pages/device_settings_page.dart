@@ -19,6 +19,9 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
   double _micGain = 5.0; // Default to typical normal
   bool _isMicGainLoaded = false;
 
+  // New State
+  int? _batteryLevel;
+
   Timer? _debounce;
   Timer? _micGainDebounce;
 
@@ -30,39 +33,37 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
 
   Future<void> _loadInitialSettings() async {
     // Give time for connection to stabilize if just opened
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 200));
     
     if (!mounted) return;
     
     // Get initial values from BLE service
     final bleService = BleService();
     
+    // Force read immediately instead of relying on cached values if any
+    // Actually, getMicGain reads from characteristic.
+    
     // Load Gain
     final gain = await bleService.getMicGain();
-    if (gain != null && mounted) {
-      // Typically gain is 0-100 on device, but we map it to 0-8 steps in UI?
-      // Wait, original app maps 0-8 slider steps to 0-100? No, checking logic:
-      // In original app: setMicGain(value.toInt()) where value is 0-8?
-      // No, let's look at getMicGain in original app: returns int.
-      // If we assume the device stores steps 0-8 natively:
-      setState(() {
-         // Cap at 8 just in case
-        _micGain = (gain > 8 ? 8 : gain).toDouble(); 
-        _isMicGainLoaded = true;
-      });
-    } else {
-       if (mounted) setState(() => _isMicGainLoaded = true);
-    }
     
     // Load Dimming
     final dim = await bleService.getLedDimRatio();
-    if (dim != null && mounted) {
+    
+    // Load Battery
+    final batt = await bleService.getBatteryLevel();
+    
+    if (mounted) {
       setState(() {
-        _dimRatio = dim.toDouble();
-        _isDimRatioLoaded = true;
+        if (gain != null) {
+          _micGain = (gain > 8 ? 8 : gain).toDouble();
+          _isMicGainLoaded = true;
+        }
+        if (dim != null) {
+          _dimRatio = dim.toDouble();
+          _isDimRatioLoaded = true;
+        }
+        _batteryLevel = batt;
       });
-    } else {
-       if (mounted) setState(() => _isDimRatioLoaded = true);
     }
   }
   
@@ -101,8 +102,6 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
               ),
               const SizedBox(height: 16),
               
-
-              
               // Dimming
               const Text('Dimming', style: TextStyle(fontSize: 16)),
               Slider(
@@ -120,7 +119,22 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
               
               const SizedBox(height: 24),
               
-              // Mic Gain
+              _buildSectionHeader(theme, 'Device Info'),
+             Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildInfoRow('Battery Level', '${_batteryLevel ?? "--"}%'),
+                    // Device Info was requested to be removed previously, 
+                    // but Battery is useful.
+                  ],
+                ),
+              ),
+            ),
+             
+            const SizedBox(height: 24),
+            _buildSectionHeader(theme, 'Microphone Gain'),
               _buildMicGainCard(theme),
               
               const SizedBox(height: 32),
@@ -162,10 +176,57 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
                 ),
               ),
             ],
+            if (!isConnected)
+              const Center(child: Text("Device not connected")),
         ],
       ),
     );
   }
+
+  Widget _buildDeviceInfoCard(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.grey),
+                const SizedBox(width: 12),
+                const Text('Device Info', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                if (_batteryLevel != null)
+                   Chip(
+                     avatar: const Icon(Icons.battery_std, size: 16),
+                     label: Text('$_batteryLevel%'),
+                     backgroundColor: Colors.green.withOpacity(0.2),
+                   ),
+              ],
+            ),
+            const Divider(),
+            _infoRow("Model", _deviceInfo['Model'] ?? 'Unknown'),
+            _infoRow("Firmware", _deviceInfo['Firmware'] ?? 'Unknown'),
+            _infoRow("Hardware", _deviceInfo['Hardware'] ?? 'Unknown'),
+            _infoRow("Manufacturer", _deviceInfo['Manufacturer'] ?? 'Based Hardware'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
 
 
   Widget _buildMicGainCard(ThemeData theme) {

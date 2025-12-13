@@ -1,63 +1,114 @@
-# Omibutfree (Omi Local)
-
-A free, self-hosted, privacy-focused alternative for your Omi device. No accounts, no monthly subscriptions, no data leaving your device without your permission.
+# Omi Local (Omibutfree)
 
 <div align="center">
-  <img src="assets/icon.png" width="120" height="120" alt="Omi Local Icon" />
+
+![Omi Local](assets/icon.png)
+
+**The Open Source, Privacy-First Companion for Omi Devices.**
+
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-blue.svg)](https://flutter.dev)
+[![Platform](https://img.shields.io/badge/Platform-iOS-black.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-green.svg)]()
+
+[Features](#features) • [Installation](#installation) • [Architecture](#architecture) • [Roadmap](#roadmap)
+
 </div>
 
-## Features
+---
 
-- **100% Local & Private**: All conversations and data are stored locally on your iPhone using SQLite.
-- **No Accounts Required**: Use the app immediately without signing up for anything.
-- **Direct Omi Connection**: Connects directly to Omi devices (Friend) via Bluetooth Low Energy (BLE).
-- **Premium UI**: Modern "2025 VC" aesthetic with dark mode and smooth animations.
-- **Flexible Transcription**:
-  - **Cloud**: Deepgram Nova-2 (Highest quality)
-  - **Local**: On-device Whisper (Free, offline) or Sherpa-ONNX (Real-time)
-- **AI Memory**: Chat with your past conversations using OpenAI (GPT-4o-mini or other models).
-- **Background Recording**: Continues recording even when the phone is locked.
+## 🚀 Overview
 
-## Setup Guide
+**Omi Local** is a fully functioning, self-hosted alternative to the official Omi app. It is designed for users who want full control over their data, zero monthly subscriptions, and a powerful local-first AI experience.
+
+It connects directly to your Omi hardware (Friend/DevKit) via Bluetooth Low Energy (BLE) and processes audio entirely on your terms—whether that's using local Whisper models on your iPhone or your own private API keys for Cloud transcription.
+
+## ✨ Features
+
+### 🔒 Privacy & Sovereignty
+
+- **100% Local Storage**: All memories, tasks, and conversations live in a SQLite database on your device.
+- **Your Keys, Your Model**: Bring your own OpenAI/Deepgram keys. No middleman servers.
+- **Offline Capable**: Use local Whisper models to transcribe audio without an internet connection.
+
+### 🧠 Advanced AI
+
+- **Memories**: Automatically extracts and индеxexes important facts about your life (e.g., "My dog's name is Rex").
+- **Actionable Tasks**: Detects promises and to-dos (e.g., "Remind me to buy milk in 20 mins") and schedules precise local notifications.
+- **Hold-to-Ask**: Hold the Omi button to chat with your AI assistant in real-time. It pauses your meeting, answers you, and resumes seamlessly.
+
+### ⚡️ Modern Hardware Integration
+
+- **Direct BLE Connection**: Low-latency audio streaming from Omi devices.
+- **Device Management**: View battery life, hardware revision, and manage SD card storage directly from the app.
+- **Haptic Feedback**: Rich haptic responses for button presses and AI interactions.
+
+### 🎨 Premium Experience
+
+- **"2025" Design**: A polished, dark-mode-first UI with smooth animations and glassmorphism.
+- **Background Audio**: Robust background processing ensures you never miss a moment, even when the phone is locked.
+
+## 🛠 Tech Stack
+
+- **Framework**: Flutter (Dart)
+- **Database**: SQLite (Drift)
+- **Bluetooth**: Flutter Blue Plus
+- **Audio Codec**: Opus (Custom decoder)
+- **Local AI**: Sherpa-ONNX (Streaming), Whisper (Batch)
+- **Cloud AI**: Deepgram (STT), OpenAI (LLM)
+
+## 📦 Installation
 
 ### Prerequisites
-- **Mac** with Xcode installed
-- **iPhone** (Developer Mode enabled)
-- **Flutter SDK** installed
 
-### Installation
+- macOS with Xcode installed
+- iPhone (Developer Mode enabled)
+- Omi Device (Friend or DevKit)
 
-1. **Clone the repository**
+### Quick Start
+
+1. **Clone the repo**
+
    ```bash
    git clone https://github.com/kbdevs/omibutfree.git
    cd omibutfree
    ```
 
 2. **Install Dependencies**
+
    ```bash
    flutter pub get
    cd ios && pod install && cd ..
    ```
 
-3. **Configure API Keys (Optional)**
-   The app works with local transcription out of the box. For cloud features, you'll need:
-   - **Deepgram API Key** (for cloud transcription)
-   - **OpenAI API Key** (for AI chat)
-   
-   Enter these in the app's **Settings** page.
+3. **Run on Device**
+   Connect your iPhone via USB.
 
-4. **Run on iPhone**
-   Connect your iPhone and run:
    ```bash
    flutter run --release
    ```
 
-## Privacy
+4. **Configure**
+   Go to **Settings** in the app to add your OpenAI API Key and choose your transcription model.
 
-- **Audio**: Streamed directly from Omi to your phone. If using Deepgram, audio is sent briefly for transcription and not stored. If using Whisper, audio never leaves your device.
-- **Transcripts**: Stored in a local SQLite database in the app's sandbox.
-- **Keys**: API keys are stored securely in the iOS Keychain.
+## 🗺 Roadmap
 
-## Contributing
+- [x] **Core**: BLE Audio, Live Transcription, Database
+- [x] **AI**: Memories, Tasks, Local Notifications
+- [x] **Hardware**: Battery, Haptics, Device Info
+- [ ] **Integrations**: Google Calendar, Notion, Apple Reminders
+- [ ] **Voice**: Speaker Diarization (Train to recognize your voice)
+- [ ] **Sync**: Robust SD Card file synchronization
 
-Open source and free forever. PRs welcome!
+## 🤝 Contributing
+
+This project is open source and free forever. We welcome contributions!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+**Built with ❤️ by KB Devs**

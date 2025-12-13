@@ -957,10 +957,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     try {
       // Chat
-      final response = await _openaiService!.chat(
-        userMessage: query,
-        conversationContext: "User asked this via Hold-to-Ask (Voice Command).",
-      );
+    final response = await _openaiService!.chat(
+      userMessage: query,
+      conversationContext: "You are Omi, a helpful AI wearable assistant. Your responses are on notifications, so they MUST be extremely concise. Aim for just the answer. Navigate straight to the point. No fluff.",
+    );
       
       debugPrint('AI Response: $response');
       NotificationService().showAiResponse(response);

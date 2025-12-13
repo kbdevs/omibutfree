@@ -18,6 +18,18 @@ const String speakerDataStreamCharacteristicUuid = 'cab1ab96-2ea5-4f4d-bb56-874b
 const String buttonServiceUuid = '23ba7924-0000-1000-7450-346eac492e92';
 const String buttonTriggerCharacteristicUuid = '23ba7925-0000-1000-7450-346eac492e92';
 
+// Device Info Service
+const String deviceInformationServiceUuid = '0000180a-0000-1000-8000-00805f9b34fb';
+const String modelNumberCharacteristicUuid = '00002a24-0000-1000-8000-00805f9b34fb';
+const String firmwareRevisionCharacteristicUuid = '00002a26-0000-1000-8000-00805f9b34fb';
+const String hardwareRevisionCharacteristicUuid = '00002a27-0000-1000-8000-00805f9b34fb';
+const String manufacturerNameCharacteristicUuid = '00002a29-0000-1000-8000-00805f9b34fb';
+
+// Storage Service
+const String storageDataStreamServiceUuid = '30295780-4301-eabd-2904-2849adfeae43';
+const String storageDataStreamCharacteristicUuid = '30295781-4301-eabd-2904-2849adfeae43';
+const String storageReadControlCharacteristicUuid = '30295782-4301-eabd-2904-2849adfeae43';
+
 enum DeviceConnectionState {
   disconnected,
   connecting,
@@ -397,9 +409,45 @@ class BleService {
     debugPrint('Device disconnected');
   }
 
+  /// Get device information from Omi device
+  Future<Map<String, String>> getDeviceInfo() async {
+    if (_connectedDevice == null) return {};
+    Map<String, String> deviceInfo = {};
+
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == deviceInformationServiceUuid) {
+           for (var char in service.characteristics) {
+             final uuid = char.uuid.toString().toLowerCase();
+             if (uuid == modelNumberCharacteristicUuid) {
+               final val = await char.read();
+               if (val.isNotEmpty) deviceInfo['Model'] = String.fromCharCodes(val);
+             } else if (uuid == firmwareRevisionCharacteristicUuid) {
+               final val = await char.read();
+               if (val.isNotEmpty) deviceInfo['Firmware'] = String.fromCharCodes(val);
+             } else if (uuid == hardwareRevisionCharacteristicUuid) {
+               final val = await char.read();
+               if (val.isNotEmpty) deviceInfo['Hardware'] = String.fromCharCodes(val);
+             } else if (uuid == manufacturerNameCharacteristicUuid) {
+               final val = await char.read();
+               if (val.isNotEmpty) deviceInfo['Manufacturer'] = String.fromCharCodes(val);
+             }
+           }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting device info: $e');
+    }
+    return deviceInfo;
+  }
+
+
+
   void dispose() {
     _stateController.close();
     _audioController.close();
     _batteryController.close();
+    _buttonController.close();
   }
 }
