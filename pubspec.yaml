@@ -63,6 +63,9 @@ dependencies:
   # UUID generation
   uuid: ^4.3.0
 
+  # iPhone microphone recording
+  record: ^6.1.2
+
   # Local Whisper transcription
   sherpa_onnx: ^1.12.19
   archive: ^4.0.7

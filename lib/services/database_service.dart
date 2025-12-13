@@ -7,7 +7,7 @@ import '../models/conversation.dart';
 class DatabaseService {
   static Database? _database;
   static const String _dbName = 'omi_local.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 3; // Incremented for tasks table
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -42,6 +42,54 @@ class DatabaseService {
             created_at INTEGER NOT NULL
           )
         ''');
+        
+        await db.execute('''
+          CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            category TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            source_conversation_id TEXT
+          )
+        ''');
+        
+        await db.execute('''
+          CREATE TABLE tasks (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            due_date INTEGER,
+            created_at INTEGER NOT NULL,
+            source_conversation_id TEXT,
+            is_completed INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS memories (
+              id TEXT PRIMARY KEY,
+              content TEXT NOT NULL,
+              category TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              source_conversation_id TEXT
+            )
+          ''');
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS tasks (
+              id TEXT PRIMARY KEY,
+              title TEXT NOT NULL,
+              description TEXT,
+              due_date INTEGER,
+              created_at INTEGER NOT NULL,
+              source_conversation_id TEXT,
+              is_completed INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+        }
       },
     );
   }
@@ -102,5 +150,116 @@ Transcript:
 ${c.transcript}
 ''';
     }).join('\n\n');
+  }
+
+  // Memory CRUD operations
+
+  static Future<void> saveMemory(Memory memory) async {
+    final db = await database;
+    await db.insert(
+      'memories',
+      {
+        'id': memory.id,
+        'content': memory.content,
+        'category': memory.category,
+        'created_at': memory.createdAt.millisecondsSinceEpoch,
+        'source_conversation_id': memory.sourceConversationId,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<List<Memory>> getMemories({int limit = 100}) async {
+    final db = await database;
+    final rows = await db.query(
+      'memories',
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return rows.map((row) => Memory.fromDbRow(row)).toList();
+  }
+
+  static Future<void> deleteMemory(String id) async {
+    final db = await database;
+    await db.delete('memories', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Check if a similar memory already exists (for deduplication)
+  static Future<bool> hasSimilarMemory(String content) async {
+    final db = await database;
+    final normalizedContent = content.toLowerCase().trim();
+    
+    final rows = await db.query('memories');
+    for (final row in rows) {
+      final existingContent = (row['content'] as String).toLowerCase().trim();
+      // Check for high similarity (simple substring or exact match)
+      if (existingContent == normalizedContent || 
+          existingContent.contains(normalizedContent) ||
+          normalizedContent.contains(existingContent)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Task CRUD operations
+
+  static Future<void> saveTask(Task task) async {
+    final db = await database;
+    await db.insert(
+      'tasks',
+      {
+        'id': task.id,
+        'title': task.title,
+        'description': task.description,
+        'due_date': task.dueDate?.millisecondsSinceEpoch,
+        'created_at': task.createdAt.millisecondsSinceEpoch,
+        'source_conversation_id': task.sourceConversationId,
+        'is_completed': task.isCompleted ? 1 : 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<List<Task>> getTasks({int limit = 100}) async {
+    final db = await database;
+    final rows = await db.query(
+      'tasks',
+      orderBy: 'is_completed ASC, due_date ASC, created_at DESC',
+      limit: limit,
+    );
+    return rows.map((row) => Task.fromDbRow(row)).toList();
+  }
+
+  static Future<void> updateTaskCompletion(String id, bool isCompleted) async {
+    final db = await database;
+    await db.update(
+      'tasks',
+      {'is_completed': isCompleted ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> deleteTask(String id) async {
+    final db = await database;
+    await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Check if a similar task already exists (for deduplication)
+  static Future<bool> hasSimilarTask(String title) async {
+    final db = await database;
+    final normalizedTitle = title.toLowerCase().trim();
+    
+    final rows = await db.query('tasks', where: 'is_completed = 0');
+    for (final row in rows) {
+      final existingTitle = (row['title'] as String).toLowerCase().trim();
+      if (existingTitle == normalizedTitle || 
+          existingTitle.contains(normalizedTitle) ||
+          normalizedTitle.contains(existingTitle)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

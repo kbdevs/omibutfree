@@ -41,6 +41,13 @@ class SettingsService {
   static bool get useSherpa => transcriptionMode == 'sherpa';
   static bool get useWhisper => transcriptionMode == 'whisper';
   static bool get useDeepgram => transcriptionMode == 'cloud';
+  
+  // Audio source: 'omi' (default) or 'phone_mic'
+  static String get audioSource => prefs.getString('audio_source') ?? 'omi';
+  static set audioSource(String value) => prefs.setString('audio_source', value);
+  
+  static bool get useOmiDevice => audioSource == 'omi';
+  static bool get usePhoneMic => audioSource == 'phone_mic';
 
   
   // Saved device for auto-connect

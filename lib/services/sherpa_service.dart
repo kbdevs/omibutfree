@@ -202,10 +202,16 @@ class SherpaService {
   Float32List _bytesToFloatSamples(Uint8List bytes) {
     // Ensure we have an even number of bytes
     final validLength = bytes.length - (bytes.length % 2);
-    final int16List = Int16List.view(bytes.buffer, 0, validLength ~/ 2);
-    final floatSamples = Float32List(int16List.length);
-    for (int i = 0; i < int16List.length; i++) {
-      floatSamples[i] = int16List[i] / 32768.0;
+    if (validLength == 0) return Float32List(0);
+    
+    // Use ByteData for safe access regardless of buffer alignment
+    final byteData = ByteData.sublistView(bytes, 0, validLength);
+    final numSamples = validLength ~/ 2;
+    final floatSamples = Float32List(numSamples);
+    
+    for (int i = 0; i < numSamples; i++) {
+      final int16Value = byteData.getInt16(i * 2, Endian.little);
+      floatSamples[i] = int16Value / 32768.0;
     }
     return floatSamples;
   }

@@ -19,6 +19,18 @@ class NotificationService {
           ledColor: Colors.white,
           importance: NotificationImportance.Max,
           channelShowBadge: true,
+        ),
+        NotificationChannel(
+          channelGroupKey: 'omi_channel_group',
+          channelKey: 'omi_task_reminders',
+          channelName: 'Task Reminders',
+          channelDescription: 'Notifications for due tasks',
+          defaultColor: const Color(0xFF6C5CE7),
+          ledColor: Colors.white,
+          importance: NotificationImportance.High,
+          channelShowBadge: true,
+          soundSource: 'resource://raw/res_custom_notification',
+          playSound: true,
         )
       ],
       channelGroups: [
@@ -36,6 +48,9 @@ class NotificationService {
         AwesomeNotifications().requestPermissionToSendNotifications();
       }
     });
+    
+    // Clear badges on init
+    await AwesomeNotifications().resetGlobalBadge();
   }
 
   Future<void> showAiResponse(String message) async {
@@ -60,5 +75,51 @@ class NotificationService {
         notificationLayout: NotificationLayout.Default,
       ),
     );
+  }
+
+  Future<void> scheduleTaskNotification({
+    required int id,
+    required String title,
+    required DateTime dueDate,
+  }) async {
+    final now = DateTime.now();
+    // Only schedule if due date is in the future
+    if (dueDate.isBefore(now)) return;
+
+    // If due date is very close (less than 5 seconds), add a small buffer
+    // to ensure the system processes it correctly
+    var scheduledDate = dueDate;
+    if (dueDate.difference(now).inSeconds < 5) {
+      scheduledDate = now.add(const Duration(seconds: 5));
+    }
+
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: id,
+        channelKey: 'omi_task_reminders',
+        title: 'Task Due: $title',
+        body: 'It is time to complete your task.',
+        notificationLayout: NotificationLayout.Default,
+        category: NotificationCategory.Reminder,
+        wakeUpScreen: true,
+        fullScreenIntent: true,
+        criticalAlert: true,
+      ),
+      schedule: NotificationCalendar.fromDate(
+        date: scheduledDate,
+        allowWhileIdle: true,
+        preciseAlarm: true,
+      ),
+    );
+    debugPrint('Scheduled notification for task: $title at $scheduledDate (ID: $id)');
+  }
+
+  Future<void> cancelTaskNotification(int id) async {
+    await AwesomeNotifications().cancel(id);
+    debugPrint('Cancelled notification ID: $id');
+  }
+
+  Future<void> resetGlobalBadge() async {
+    await AwesomeNotifications().resetGlobalBadge();
   }
 }

@@ -187,10 +187,16 @@ class WhisperService {
   List<double> _bytesToFloatSamples(Uint8List bytes) {
     // Ensure we have an even number of bytes
     final validLength = bytes.length - (bytes.length % 2);
-    final int16List = Int16List.view(bytes.buffer, 0, validLength ~/ 2);
+    if (validLength == 0) return <double>[];
+    
+    // Use ByteData for safe access regardless of buffer alignment
+    final byteData = ByteData.sublistView(bytes, 0, validLength);
+    final numSamples = validLength ~/ 2;
     final floatSamples = <double>[];
-    for (int i = 0; i < int16List.length; i++) {
-      floatSamples.add(int16List[i] / 32768.0);
+    
+    for (int i = 0; i < numSamples; i++) {
+      final int16Value = byteData.getInt16(i * 2, Endian.little);
+      floatSamples.add(int16Value / 32768.0);
     }
     return floatSamples;
   }

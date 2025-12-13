@@ -6,7 +6,8 @@ import '../services/ble_service.dart';
 import '../services/settings_service.dart';
 import 'settings_page.dart';
 import 'conversations_page.dart';
-import 'chat_page.dart';
+import 'memories_page.dart';
+import 'tasks_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,9 +25,10 @@ class _HomePageState extends State<HomePage> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          DeviceTab(onNavigateToSettings: () => setState(() => _currentIndex = 3)),
+          DeviceTab(onNavigateToSettings: () => setState(() => _currentIndex = 4)),
           const ConversationsPage(),
-          const ChatPage(),
+          const MemoriesPage(),
+          const TasksPage(),
           const SettingsPage(),
         ],
       ),
@@ -57,9 +59,14 @@ class _HomePageState extends State<HomePage> {
               label: 'History',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline),
-              activeIcon: Icon(Icons.chat_bubble),
-              label: 'Chat',
+              icon: Icon(Icons.psychology_outlined),
+              activeIcon: Icon(Icons.psychology),
+              label: 'Memories',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.check_circle_outline),
+              activeIcon: Icon(Icons.check_circle),
+              label: 'Tasks',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),
@@ -84,6 +91,7 @@ class DeviceTab extends StatefulWidget {
 
 class _DeviceTabState extends State<DeviceTab> {
   bool _isScanning = false;
+  bool _isUserConnecting = false; // Track user-initiated connection
   List<BleDevice> _devices = [];
 
   @override
@@ -132,20 +140,15 @@ class _DeviceTabState extends State<DeviceTab> {
   }
 
   Widget _buildBody(AppProvider provider) {
+    // Show connected view when listening (either Omi or phone mic)
+    if (provider.isListening || provider.isUsingPhoneMic) {
+      return _buildConnectedView(provider);
+    }
+    
     switch (provider.deviceState) {
       case DeviceConnectionState.disconnected:
-        return _buildDisconnectedView(provider);
       case DeviceConnectionState.connecting:
-        return const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Color(0xFF6C5CE7)),
-              SizedBox(height: 16),
-              Text('Connecting to Omi...', style: TextStyle(color: Colors.grey)),
-            ],
-          ),
-        );
+        return _buildDisconnectedView(provider);
       case DeviceConnectionState.connected:
         return _buildConnectedView(provider);
     }
@@ -178,7 +181,7 @@ class _DeviceTabState extends State<DeviceTab> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Connect your Omi device\nto capture and transcribe conversations.',
+          'Choose your audio source\nto capture and transcribe conversations.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.6), height: 1.5),
         ),
@@ -219,44 +222,147 @@ class _DeviceTabState extends State<DeviceTab> {
         ],
         
         // Connect to Omi Device
-        _buildActionCard(
-          title: 'Use Omi Device',
-          subtitle: 'Connect via Bluetooth for hands-free recording',
-          icon: Icons.bluetooth_audio,
-          color: const Color(0xFF6C5CE7),
-          onTap: _startScan,
-        ),
+        _buildOmiCard(provider),
         
-        // Scanning overlay
-        if (_isScanning) ...[
-          const SizedBox(height: 32),
-          const Row(
+        const SizedBox(height: 16),
+        
+        // Use Phone Microphone
+        _buildActionCard(
+          title: 'Use iPhone Microphone',
+          subtitle: 'Record directly from your phone',
+          icon: Icons.phone_iphone,
+          color: const Color(0xFF00b894),
+          onTap: SettingsService.hasApiKeys ? () => _startPhoneMicRecording(provider) : null,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildOmiCard(AppProvider provider) {
+    final theme = Theme.of(context);
+    // Only show connecting state for user-initiated connections
+    final isConnecting = _isUserConnecting && provider.deviceState == DeviceConnectionState.connecting;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isConnecting ? null : _startScan,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: Column(
             children: [
-              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-              SizedBox(width: 12),
-              Text('Scanning for devices...', style: TextStyle(fontWeight: FontWeight.w600)),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isConnecting 
+                          ? Colors.orange.withOpacity(0.1)
+                          : const Color(0xFF6C5CE7).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: isConnecting
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.orange,
+                            ),
+                          )
+                        : const Icon(Icons.bluetooth_audio, color: Color(0xFF6C5CE7)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isConnecting ? 'Connecting...' : 'Use Omi Device',
+                          style: TextStyle(
+                            fontSize: 16, 
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isConnecting 
+                              ? 'Please wait while connecting to your Omi'
+                              : 'Connect via Bluetooth for hands-free recording',
+                          style: TextStyle(
+                            fontSize: 12, 
+                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isConnecting)
+                    Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.3)),
+                ],
+              ),
+              // Scanning results within the card
+              if (_isScanning) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                const Row(
+                  children: [
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                    Text('Scanning for devices...', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ..._devices.map((device) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.bluetooth, size: 20, color: Color(0xFF6C5CE7)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(device.name.isNotEmpty ? device.name : 'Unknown Device',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            Text(device.device.remoteId.str,
+                              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _connectToDevice(device, provider),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C5CE7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          minimumSize: Size.zero,
+                          textStyle: const TextStyle(fontSize: 13),
+                        ),
+                        child: const Text('Connect'),
+                      ),
+                    ],
+                  ),
+                )),
+              ],
             ],
           ),
-          const SizedBox(height: 16),
-          ..._devices.map((device) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.bluetooth),
-              title: Text(device.name.isNotEmpty ? device.name : 'Unknown Device'),
-              subtitle: Text(device.device.remoteId.str),
-              trailing: ElevatedButton(
-                onPressed: () => _connectToDevice(device, provider),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C5CE7),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: const Text('Connect'),
-              ),
-            ),
-          )).toList(),
-        ],
-      ],
+        ),
+      ),
     );
   }
   
@@ -333,21 +439,33 @@ class _DeviceTabState extends State<DeviceTab> {
                   color: Colors.green.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check, color: Colors.green, size: 20),
+                child: Icon(
+                  provider.isUsingPhoneMic ? Icons.phone_iphone : Icons.check, 
+                  color: Colors.green, 
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Connected', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('Omi Device Ready', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(
+                      provider.isUsingPhoneMic ? 'Phone Mic Active' : 'Connected',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      provider.isUsingPhoneMic ? 'Using iPhone Microphone' : 'Omi Device Ready',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
               TextButton(
-                onPressed: provider.disconnectDevice,
-                child: const Text('Disconnect'),
+                onPressed: provider.isUsingPhoneMic 
+                    ? provider.stopListening 
+                    : provider.disconnectDevice,
+                child: Text(provider.isUsingPhoneMic ? 'Stop' : 'Disconnect'),
               ),
             ],
           ),
@@ -574,8 +692,20 @@ class _DeviceTabState extends State<DeviceTab> {
   }
 
   Future<void> _connectToDevice(BleDevice device, AppProvider provider) async {
+    setState(() => _isUserConnecting = true);
     await provider.stopScan();
-    await provider.connectToDevice(device);
+    setState(() => _isScanning = false);
+    
+    final success = await provider.connectToDevice(device);
+    
+    if (mounted) {
+      setState(() => _isUserConnecting = false);
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to connect to device')),
+        );
+      }
+    }
   }
 
   Future<void> _startListening(AppProvider provider) async {
@@ -590,6 +720,17 @@ class _DeviceTabState extends State<DeviceTab> {
     }
   }
 
+  Future<void> _startPhoneMicRecording(AppProvider provider) async {
+    try {
+      await provider.startListeningWithPhoneMic();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
 
 }
 

@@ -9,7 +9,7 @@ class OpenAIService {
   
   OpenAIService({
     required this.apiKey,
-    this.model = 'gpt-4.1-mini',
+    this.model = 'gpt-5-mini',
   });
 
   /// Chat with OpenAI using conversation context
@@ -70,8 +70,11 @@ Use this context to provide personalized and relevant responses. Reference speci
     }
   }
 
-  /// Generate a title and summary for a conversation
-  Future<Map<String, String>> summarizeConversation(String transcript) async {
+  /// Generate a title, summary, extract memories and tasks from a conversation
+  Future<Map<String, dynamic>> summarizeConversation(String transcript, {DateTime? currentTime}) async {
+    final now = currentTime ?? DateTime.now();
+    final timeContext = 'Current date/time: ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
     try {
       final response = await http.post(
         Uri.parse('https://api.openai.com/v1/chat/completions'),
@@ -84,14 +87,39 @@ Use this context to provide personalized and relevant responses. Reference speci
           'messages': [
             {
               'role': 'system',
-              'content': 'You summarize conversations. Respond with JSON only: {"title": "short title", "summary": "brief summary"}'
+              'content': '''You analyze conversations and extract key information.
+$timeContext
+
+Respond with JSON only:
+{
+  "title": "short descriptive title",
+  "summary": "brief 1-2 sentence summary",
+  "memories": ["important fact 1", "important fact 2"],
+  "tasks": [
+    {"title": "task description", "due_date": "2024-12-12T18:00:00"}
+  ]
+}
+
+For memories, extract ONLY important facts worth remembering long-term, such as:
+- Names (e.g., "User's name is Karsten")
+- Preferences (e.g., "User prefers tea over coffee")
+- Personal details (e.g., "User works as a software engineer")
+
+For tasks, extract actionable items mentioned:
+- Things the user needs to do (e.g., "I have to write my essay tonight" → task with due_date tonight around 6pm)
+- Appointments or deadlines mentioned
+- Use ISO 8601 format for due_date (or null if no time mentioned)
+- Infer reasonable times: "tonight" = 6pm today, "tomorrow morning" = 9am tomorrow
+
+If there are no notable facts/tasks, return empty arrays.
+Keep each item as a short, clear statement.'''
             },
             {
               'role': 'user',
-              'content': 'Summarize this conversation:\n\n$transcript'
+              'content': 'Analyze this conversation:\n\n$transcript'
             }
           ],
-          'max_tokens': 200,
+          'max_tokens': 700,
           'response_format': {'type': 'json_object'},
         }),
       );
@@ -104,13 +132,15 @@ Use this context to provide personalized and relevant responses. Reference speci
           return {
             'title': parsed['title'] ?? 'Untitled Conversation',
             'summary': parsed['summary'] ?? '',
+            'memories': (parsed['memories'] as List?)?.cast<String>() ?? [],
+            'tasks': parsed['tasks'] ?? [],
           };
         }
       }
-      return {'title': 'Untitled Conversation', 'summary': ''};
+      return {'title': 'Untitled Conversation', 'summary': '', 'memories': <String>[], 'tasks': []};
     } catch (e) {
       debugPrint('OpenAI summarize error: $e');
-      return {'title': 'Untitled Conversation', 'summary': ''};
+      return {'title': 'Untitled Conversation', 'summary': '', 'memories': <String>[], 'tasks': []};
     }
   }
 }

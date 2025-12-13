@@ -109,7 +109,77 @@ class OmiLocalApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: const HomePage(),
+        builder: (context, child) {
+          return Stack(
+            children: [
+              if (child != null) child,
+              const ListeningOverlay(),
+            ],
+          );
+        },
       ),
+    );
+  }
+}
+
+class ListeningOverlay extends StatelessWidget {
+  const ListeningOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, provider, child) {
+        if (!provider.isHoldToAskActive) return const SizedBox.shrink();
+
+        return Material(
+          color: Colors.black.withOpacity(0.7),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).primaryColor.withOpacity(0.5),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.mic,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Listening...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Release to finish',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 16,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

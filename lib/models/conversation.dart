@@ -93,6 +93,51 @@ class Conversation {
   }
 }
 
+/// A memory extracted from conversations
+class Memory {
+  final String id;
+  final String content;           // "User's name is Karsten"
+  final String category;          // "personal", "preference", "fact"
+  final DateTime createdAt;
+  final String? sourceConversationId;
+
+  Memory({
+    required this.id,
+    required this.content,
+    required this.category,
+    required this.createdAt,
+    this.sourceConversationId,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'content': content,
+    'category': category,
+    'created_at': createdAt.millisecondsSinceEpoch,
+    'source_conversation_id': sourceConversationId,
+  };
+
+  factory Memory.fromJson(Map<String, dynamic> json) {
+    return Memory(
+      id: json['id'],
+      content: json['content'],
+      category: json['category'] ?? 'fact',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(json['created_at']),
+      sourceConversationId: json['source_conversation_id'],
+    );
+  }
+
+  factory Memory.fromDbRow(Map<String, dynamic> row) {
+    return Memory(
+      id: row['id'],
+      content: row['content'],
+      category: row['category'] ?? 'fact',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at']),
+      sourceConversationId: row['source_conversation_id'],
+    );
+  }
+}
+
 /// Chat message in AI conversation
 class ChatMessage {
   final String id;
@@ -106,4 +151,49 @@ class ChatMessage {
     required this.isUser,
     required this.createdAt,
   });
+}
+
+/// A task extracted from conversations
+class Task {
+  final String id;
+  final String title;
+  final String? description;
+  final DateTime? dueDate;
+  final DateTime createdAt;
+  final String? sourceConversationId;
+  bool isCompleted;
+
+  Task({
+    required this.id,
+    required this.title,
+    this.description,
+    this.dueDate,
+    required this.createdAt,
+    this.sourceConversationId,
+    this.isCompleted = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'description': description,
+    'due_date': dueDate?.millisecondsSinceEpoch,
+    'created_at': createdAt.millisecondsSinceEpoch,
+    'source_conversation_id': sourceConversationId,
+    'is_completed': isCompleted ? 1 : 0,
+  };
+
+  factory Task.fromDbRow(Map<String, dynamic> row) {
+    return Task(
+      id: row['id'],
+      title: row['title'],
+      description: row['description'],
+      dueDate: row['due_date'] != null 
+          ? DateTime.fromMillisecondsSinceEpoch(row['due_date']) 
+          : null,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at']),
+      sourceConversationId: row['source_conversation_id'],
+      isCompleted: row['is_completed'] == 1,
+    );
+  }
 }

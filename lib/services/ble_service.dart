@@ -13,6 +13,8 @@ const String batteryLevelCharacteristicUuid = '2a19';
 const String settingsServiceUuid = '19b10010-e8f2-537e-4f6c-d104768a1214';
 const String settingsDimRatioCharacteristicUuid = '19b10011-e8f2-537e-4f6c-d104768a1214';
 const String settingsMicGainCharacteristicUuid = '19b10012-e8f2-537e-4f6c-d104768a1214';
+const String speakerDataStreamServiceUuid = 'cab1ab95-2ea5-4f4d-bb56-874b72cfc984';
+const String speakerDataStreamCharacteristicUuid = 'cab1ab96-2ea5-4f4d-bb56-874b72cfc984';
 const String buttonServiceUuid = '23ba7924-0000-1000-7450-346eac492e92';
 const String buttonTriggerCharacteristicUuid = '23ba7925-0000-1000-7450-346eac492e92';
 
@@ -292,6 +294,29 @@ class BleService {
       debugPrint('Error getting LED dim ratio: $e');
     }
     return null;
+  }
+
+  /// Trigger haptic feedback on device (using Speaker Service)
+  /// level: 1 (20ms), 2 (50ms), 3 (500ms)
+  Future<void> triggerHaptic(int level) async {
+    if (_connectedDevice == null) return;
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == speakerDataStreamServiceUuid) {
+          for (var char in service.characteristics) {
+             if (char.uuid.toString().toLowerCase() == speakerDataStreamCharacteristicUuid) {
+               await char.write([level & 0xFF]); 
+               debugPrint('Triggered Omi Haptic (Level $level)');
+               return;
+             }
+          }
+        }
+      }
+      debugPrint('Haptic service not found');
+    } catch (e) {
+      debugPrint('Error triggering haptic: $e');
+    }
   }
 
   /// Start listening for audio data
