@@ -26,7 +26,7 @@ class SettingsService {
   static String get language => prefs.getString('language') ?? 'en';
   static set language(String value) => prefs.setString('language', value);
 
-  static String get openaiModel => prefs.getString('openai_model') ?? 'gpt-4o-mini';
+  static String get openaiModel => prefs.getString('openai_model') ?? 'gpt-4.1-mini';
   static set openaiModel(String value) => prefs.setString('openai_model', value);
   
   // Transcription mode: 'cloud' (Deepgram), 'whisper', or 'sherpa'
