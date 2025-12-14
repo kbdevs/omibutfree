@@ -10,8 +10,8 @@ class OpenAIService {
   
   OpenAIService({
     required this.apiKey,
-    this.model = 'gpt-4o-mini',
-  });
+    String? model,
+  }) : model = model ?? SettingsService.openaiModel;
 
   /// Chat with OpenAI using conversation context
   Future<String> chat({
