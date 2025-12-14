@@ -83,4 +83,56 @@ class SettingsService {
   // iCloud backup
   static bool get icloudBackupEnabled => prefs.getBool('icloud_backup_enabled') ?? false;
   static set icloudBackupEnabled(bool value) => prefs.setBool('icloud_backup_enabled', value);
+  
+  // API Usage Tracking
+  static double get deepgramMinutesUsed => prefs.getDouble('deepgram_minutes_used') ?? 0.0;
+  static set deepgramMinutesUsed(double value) => prefs.setDouble('deepgram_minutes_used', value);
+  
+  static int get openaiInputTokens => prefs.getInt('openai_input_tokens') ?? 0;
+  static set openaiInputTokens(int value) => prefs.setInt('openai_input_tokens', value);
+  
+  static int get openaiOutputTokens => prefs.getInt('openai_output_tokens') ?? 0;
+  static set openaiOutputTokens(int value) => prefs.setInt('openai_output_tokens', value);
+  
+  // Track usage
+  static void addDeepgramUsage(double minutes) {
+    deepgramMinutesUsed = deepgramMinutesUsed + minutes;
+  }
+  
+  static void addOpenAIUsage(int inputTokens, int outputTokens) {
+    openaiInputTokens = openaiInputTokens + inputTokens;
+    openaiOutputTokens = openaiOutputTokens + outputTokens;
+  }
+  
+  static void resetUsageStats() {
+    deepgramMinutesUsed = 0.0;
+    openaiInputTokens = 0;
+    openaiOutputTokens = 0;
+  }
+  
+  // Pricing (per 1M tokens for OpenAI, per minute for Deepgram)
+  static const Map<String, Map<String, double>> openaiPricing = {
+    'gpt-4o-mini': {'input': 0.15, 'output': 0.60},
+    'gpt-4o': {'input': 2.50, 'output': 10.00},
+    'gpt-4.1': {'input': 2.00, 'output': 8.00},
+    'gpt-4.1-mini': {'input': 0.40, 'output': 1.60},
+    'gpt-4.1-nano': {'input': 0.10, 'output': 0.40},
+    'gpt-4-turbo': {'input': 10.00, 'output': 30.00},
+    'gpt-3.5-turbo': {'input': 0.50, 'output': 1.50},
+  };
+  
+  static const double deepgramPricePerMinute = 0.0059; // Nova-2 streaming
+  
+  // Cost calculations
+  static double get deepgramCost => deepgramMinutesUsed * deepgramPricePerMinute;
+  
+  static double get openaiCost {
+    final model = openaiModel;
+    final pricing = openaiPricing[model] ?? {'input': 2.00, 'output': 8.00}; // Default to gpt-4.1 pricing
+    final inputCost = (openaiInputTokens / 1000000) * pricing['input']!;
+    final outputCost = (openaiOutputTokens / 1000000) * pricing['output']!;
+    return inputCost + outputCost;
+  }
+  
+  static double get totalApiCost => deepgramCost + openaiCost;
 }

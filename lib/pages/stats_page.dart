@@ -2,9 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../services/settings_service.dart';
 
-class StatsPage extends StatelessWidget {
+
+class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
+
+  @override
+  State<StatsPage> createState() => _StatsPageState();
+}
+
+class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
@@ -158,11 +166,76 @@ class StatsPage extends StatelessWidget {
                     ),
                   ),
                 ),
+              
+              const SizedBox(height: 16),
+              
+              // API Costs
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'API Costs (Estimated)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              SettingsService.resetUsageStats();
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Usage stats reset')),
+                              );
+                            },
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _DetailRow(
+                        icon: Icons.graphic_eq,
+                        label: 'Deepgram (${SettingsService.deepgramMinutesUsed.toStringAsFixed(1)} min)',
+                        value: '\$${SettingsService.deepgramCost.toStringAsFixed(4)}',
+                      ),
+                      const Divider(),
+                      _DetailRow(
+                        icon: Icons.smart_toy_outlined,
+                        label: 'OpenAI (${_formatTokens(SettingsService.openaiInputTokens + SettingsService.openaiOutputTokens)} tokens)',
+                        value: '\$${SettingsService.openaiCost.toStringAsFixed(4)}',
+                      ),
+                      const Divider(),
+                      _DetailRow(
+                        icon: Icons.attach_money,
+                        label: 'Total Estimated',
+                        value: '\$${SettingsService.totalApiCost.toStringAsFixed(4)}',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Model: ${SettingsService.openaiModel}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           );
         },
       ),
     );
+  }
+
+  String _formatTokens(int tokens) {
+    if (tokens >= 1000000) {
+      return '${(tokens / 1000000).toStringAsFixed(1)}M';
+    } else if (tokens >= 1000) {
+      return '${(tokens / 1000).toStringAsFixed(1)}K';
+    }
+    return tokens.toString();
   }
 
   String _formatNumber(int num) {

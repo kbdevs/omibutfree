@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'settings_service.dart';
 
 class OpenAIService {
   final String apiKey;
@@ -59,6 +60,16 @@ Use this context to provide personalized and relevant responses. Reference speci
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final content = json['choices']?[0]?['message']?['content'];
+        
+        // Track token usage
+        final usage = json['usage'];
+        if (usage != null) {
+          SettingsService.addOpenAIUsage(
+            usage['prompt_tokens'] ?? 0,
+            usage['completion_tokens'] ?? 0,
+          );
+        }
+        
         return content ?? 'No response generated';
       } else {
         debugPrint('OpenAI API error: ${response.statusCode} ${response.body}');
@@ -127,6 +138,16 @@ Keep each item as a short, clear statement.'''
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final content = json['choices']?[0]?['message']?['content'];
+        
+        // Track token usage
+        final usage = json['usage'];
+        if (usage != null) {
+          SettingsService.addOpenAIUsage(
+            usage['prompt_tokens'] ?? 0,
+            usage['completion_tokens'] ?? 0,
+          );
+        }
+        
         if (content != null) {
           final parsed = jsonDecode(content);
           return {

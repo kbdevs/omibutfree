@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/conversation.dart';
+import 'settings_service.dart';
 
 class DeepgramService {
   WebSocketChannel? _channel;
@@ -82,6 +83,12 @@ class DeepgramService {
         if (alternatives != null && alternatives.isNotEmpty) {
           final transcript = alternatives[0]['transcript'] as String?;
           final words = alternatives[0]['words'] as List?;
+          
+          // Track audio duration for cost calculation
+          final duration = json['duration'] as num?;
+          if (duration != null && duration > 0) {
+            SettingsService.addDeepgramUsage(duration.toDouble() / 60.0); // Convert seconds to minutes
+          }
           
           if (transcript != null && transcript.isNotEmpty) {
             // Convert to TranscriptSegment
