@@ -273,9 +273,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: SettingsService.openaiModel,
+                    dropdownColor: const Color(0xFF2D2D2D),
                     decoration: const InputDecoration(
                       labelText: 'Model',
                     ),
+                    icon: Icon(Icons.arrow_drop_down, color: theme.colorScheme.onSurface.withOpacity(0.5)),
                     items: const [
                       DropdownMenuItem(value: 'gpt-5-nano', child: Text('GPT-5 Nano (cheapest)')),
                       DropdownMenuItem(value: 'gpt-5-mini', child: Text('GPT-5 Mini')),
