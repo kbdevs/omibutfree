@@ -9,6 +9,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue.svg)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/Platform-iOS-black.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-green.svg)]()
+[![Version](https://img.shields.io/badge/Version-2.1.0-purple.svg)]()
 
 [Features](#features) • [Installation](#installation) • [Architecture](#architecture) • [Roadmap](#roadmap)
 
@@ -29,28 +30,33 @@ It connects directly to your Omi hardware (Friend/DevKit) via Bluetooth Low Ener
 - **100% Local Storage**: All memories, tasks, and conversations live in a SQLite database on your device.
 - **Your Keys, Your Model**: Bring your own OpenAI/Deepgram keys. No middleman servers.
 - **Offline Capable**: Use local Whisper models to transcribe audio without an internet connection.
+- **Export All Data**: Export your entire database as JSON anytime.
+- **iCloud Backup**: Optional sync across your devices.
 
 ### 🧠 Advanced AI
 
-- **Memories**: Automatically extracts and индеxexes important facts about your life (e.g., "My dog's name is Rex").
-- **Actionable Tasks**: Detects promises and to-dos (e.g., "Remind me to buy milk in 20 mins") and schedules precise local notifications.
-- **Hold-to-Ask**: Hold the Omi button to chat with your AI assistant in real-time. It pauses your meeting, answers you, and resumes seamlessly.
+- **Memories**: Automatically extracts important facts. Edit or add memories manually by selecting text.
+- **Actionable Tasks**: Detects promises and to-dos with scheduled local notifications.
+- **Hold-to-Ask**: Hold the Omi button to chat with your AI assistant in real-time.
 
 ### ⚡️ Modern Hardware Integration
 
 - **Direct BLE Connection**: Low-latency audio streaming from Omi devices.
-- **Device Management**: View battery life, hardware revision, and manage SD card storage directly from the app.
-- **Haptic Feedback**: Rich haptic responses for button presses and AI interactions.
+- **Battery Notifications**: Alerts at 50% and 20% battery levels.
+- **Device Management**: View battery life, adjust mic gain, and LED dimming.
 
 ### 🎨 Premium Experience
 
-- **"2025" Design**: A polished, dark-mode-first UI with smooth animations and glassmorphism.
-- **Background Audio**: Robust background processing ensures you never miss a moment, even when the phone is locked.
+- **Dark Mode UI**: Polished design with smooth animations.
+- **Conversation Search**: Find past conversations instantly.
+- **Duration Display**: See how long each conversation lasted.
+- **Statistics Dashboard**: Track your usage with conversation counts, word totals, and more.
+- **Notification Controls**: Toggle every notification type individually.
 
 ## 🛠 Tech Stack
 
 - **Framework**: Flutter (Dart)
-- **Database**: SQLite (Drift)
+- **Database**: SQLite (sqflite)
 - **Bluetooth**: Flutter Blue Plus
 - **Audio Codec**: Opus (Custom decoder)
 - **Local AI**: Sherpa-ONNX (Streaming), Whisper (Batch)
@@ -95,6 +101,7 @@ It connects directly to your Omi hardware (Friend/DevKit) via Bluetooth Low Ener
 - [x] **Core**: BLE Audio, Live Transcription, Database
 - [x] **AI**: Memories, Tasks, Local Notifications
 - [x] **Hardware**: Battery, Haptics, Device Info
+- [x] **v2.1.0**: Edit Memories, Search, Export, Stats, Notification Settings
 - [ ] **Integrations**: Google Calendar, Notion, Apple Reminders
 - [ ] **Voice**: Speaker Diarization (Train to recognize your voice)
 - [ ] **Sync**: Robust SD Card file synchronization
