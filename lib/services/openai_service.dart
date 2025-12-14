@@ -10,7 +10,7 @@ class OpenAIService {
   
   OpenAIService({
     required this.apiKey,
-    this.model = 'gpt-5-mini',
+    this.model = 'gpt-4o-mini',
   });
 
   /// Chat with OpenAI using conversation context
@@ -157,6 +157,8 @@ Keep each item as a short, clear statement.'''
             'tasks': parsed['tasks'] ?? [],
           };
         }
+      } else {
+        debugPrint('OpenAI summarize API error: ${response.statusCode} ${response.body}');
       }
       return {'title': 'Untitled Conversation', 'summary': '', 'memories': <String>[], 'tasks': []};
     } catch (e) {

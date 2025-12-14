@@ -453,7 +453,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     // Generate summary and extract memories with OpenAI (in background)
     if (SettingsService.openaiApiKey.isNotEmpty) {
-      _openaiService ??= OpenAIService(
+      _openaiService = OpenAIService(
         apiKey: SettingsService.openaiApiKey,
         model: SettingsService.openaiModel,
       );
@@ -629,7 +629,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     final context = _buildMemoryContext();
 
     // Get AI response
-    _openaiService ??= OpenAIService(
+    _openaiService = OpenAIService(
       apiKey: SettingsService.openaiApiKey,
       model: SettingsService.openaiModel,
     );
@@ -1008,7 +1008,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       NotificationService().showAiResponse("Processing: $query");
     }
     
-    _openaiService ??= OpenAIService(
+    _openaiService = OpenAIService(
       apiKey: SettingsService.openaiApiKey,
       model: SettingsService.openaiModel,
     );
