@@ -184,6 +184,17 @@ ${c.transcript}
     await db.delete('memories', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Update memory content
+  static Future<void> updateMemory(String id, String content) async {
+    final db = await database;
+    await db.update(
+      'memories',
+      {'content': content},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   /// Check if a similar memory already exists (for deduplication)
   static Future<bool> hasSimilarMemory(String content) async {
     final db = await database;
@@ -261,5 +272,20 @@ ${c.transcript}
       }
     }
     return false;
+  }
+
+  /// Export all data for backup/sharing
+  static Future<Map<String, dynamic>> exportAllData() async {
+    final conversations = await getConversations(limit: 10000);
+    final memories = await getMemories(limit: 10000);
+    final tasks = await getTasks(limit: 10000);
+    
+    return {
+      'export_date': DateTime.now().toIso8601String(),
+      'app_version': '2.1.0',
+      'conversations': conversations.map((c) => c.toJson()).toList(),
+      'memories': memories.map((m) => m.toJson()).toList(),
+      'tasks': tasks.map((t) => t.toJson()).toList(),
+    };
   }
 }

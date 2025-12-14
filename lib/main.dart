@@ -102,6 +102,13 @@ class OmiLocalApp extends StatelessWidget {
             contentPadding: const EdgeInsets.all(16),
             hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
           ),
+          snackBarTheme: SnackBarThemeData(
+            backgroundColor: const Color(0xFF2D2D2D),
+            contentTextStyle: const TextStyle(color: Colors.white),
+            actionTextColor: const Color(0xFFA29BFE),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
           useMaterial3: true,
         ),
         theme: ThemeData(

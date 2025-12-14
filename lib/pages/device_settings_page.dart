@@ -183,38 +183,7 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
     );
   }
 
-  Widget _buildDeviceInfoCard(ThemeData theme) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.grey),
-                const SizedBox(width: 12),
-                const Text('Device Info', style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                if (_batteryLevel != null)
-                   Chip(
-                     avatar: const Icon(Icons.battery_std, size: 16),
-                     label: Text('$_batteryLevel%'),
-                     backgroundColor: Colors.green.withOpacity(0.2),
-                   ),
-              ],
-            ),
-            const Divider(),
-            _infoRow("Model", _deviceInfo['Model'] ?? 'Unknown'),
-            _infoRow("Firmware", _deviceInfo['Firmware'] ?? 'Unknown'),
-            _infoRow("Hardware", _deviceInfo['Hardware'] ?? 'Unknown'),
-            _infoRow("Manufacturer", _deviceInfo['Manufacturer'] ?? 'Based Hardware'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -223,6 +192,16 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
           Text(label, style: const TextStyle(color: Colors.grey)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(ThemeData theme, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }

@@ -37,6 +37,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   DeviceConnectionState get deviceState => _deviceState;
   int? _batteryLevel;
   int? get batteryLevel => _batteryLevel;
+  
+  // Battery notification tracking (to avoid duplicate alerts)
+  bool _notified50 = false;
+  bool _notified20 = false;
 
   bool _isListening = false;
   bool get isListening => _isListening;
@@ -180,6 +184,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         final success = await _bleService.connectToSavedDevice(savedId);
         if (success) {
           _batteryLevel = await _bleService.getBatteryLevel();
+          _checkBatteryNotification();
           notifyListeners();
           debugPrint('Auto-connected to saved device!');
         } else {
@@ -209,6 +214,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       SettingsService.savedDeviceName = device.name;
       
       _batteryLevel = await _bleService.getBatteryLevel();
+      _checkBatteryNotification();
       notifyListeners();
     }
     return success;
@@ -218,7 +224,40 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     await stopListening();
     await _bleService.disconnect();
     _batteryLevel = null;
+    _notified50 = false;
+    _notified20 = false;
     notifyListeners();
+  }
+  
+  /// Check battery level and show notification at 50% and 20%
+  void _checkBatteryNotification() {
+    if (_batteryLevel == null) return;
+    
+    if (_batteryLevel! <= 20 && !_notified20) {
+      _notified20 = true;
+      if (SettingsService.notifyBatteryCritical) {
+        NotificationService().showNotification(
+          'Low Battery Warning',
+          'Omi battery is at $_batteryLevel%. Please charge soon.',
+        );
+      }
+    } else if (_batteryLevel! <= 50 && !_notified50) {
+      _notified50 = true;
+      if (SettingsService.notifyBatteryLow) {
+        NotificationService().showNotification(
+          'Battery Getting Low',
+          'Omi battery is at $_batteryLevel%.',
+        );
+      }
+    }
+    
+    // Reset flags when charged above thresholds
+    if (_batteryLevel! > 50) {
+      _notified50 = false;
+      _notified20 = false;
+    } else if (_batteryLevel! > 20) {
+      _notified20 = false;
+    }
   }
   
   Future<void> forgetDevice() async {
@@ -657,6 +696,23 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     await loadMemories();
   }
 
+  Future<void> updateMemory(String id, String content) async {
+    await DatabaseService.updateMemory(id, content);
+    await loadMemories();
+  }
+
+  Future<void> addMemory(String content, {String? sourceConversationId}) async {
+    final memory = Memory(
+      id: const Uuid().v4(),
+      content: content.trim(),
+      category: 'manual',
+      createdAt: DateTime.now(),
+      sourceConversationId: sourceConversationId,
+    );
+    await DatabaseService.saveMemory(memory);
+    await loadMemories();
+  }
+
   Future<void> loadTasks() async {
     _tasks = await DatabaseService.getTasks();
     notifyListeners();
@@ -948,7 +1004,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     
     // Notify user we are processing
-    NotificationService().showAiResponse("Processing: $query");
+    if (SettingsService.notifyProcessing) {
+      NotificationService().showAiResponse("Processing: $query");
+    }
     
     _openaiService ??= OpenAIService(
       apiKey: SettingsService.openaiApiKey,

@@ -145,6 +145,14 @@ class MemoriesPage extends StatelessWidget {
                   ),
                   IconButton(
                     icon: Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    ),
+                    onPressed: () => _showEditDialog(context, provider, memory.id, memory.content),
+                  ),
+                  IconButton(
+                    icon: Icon(
                       Icons.delete_outline,
                       size: 20,
                       color: theme.colorScheme.onSurface.withOpacity(0.3),
@@ -193,6 +201,42 @@ class MemoriesPage extends StatelessWidget {
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, AppProvider provider, String memoryId, String currentContent) {
+    final controller = TextEditingController(text: currentContent);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Memory'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Enter memory content',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final newContent = controller.text.trim();
+              if (newContent.isNotEmpty && newContent != currentContent) {
+                provider.updateMemory(memoryId, newContent);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
           ),
         ],
       ),

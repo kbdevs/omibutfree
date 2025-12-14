@@ -57,6 +57,30 @@ class Conversation {
     return segments.map((s) => 'Speaker ${s.speakerId}: ${s.text}').join('\n');
   }
 
+  /// Get the duration of the conversation from first to last segment
+  Duration get duration {
+    if (segments.isEmpty) return Duration.zero;
+    final firstStart = segments.first.startTime;
+    final lastEnd = segments.last.endTime;
+    return Duration(milliseconds: ((lastEnd - firstStart) * 1000).round());
+  }
+
+  /// Get formatted duration string (e.g., "5m 23s")
+  String get formattedDuration {
+    final d = duration;
+    if (d.inSeconds < 60) {
+      return '${d.inSeconds}s';
+    } else if (d.inMinutes < 60) {
+      final mins = d.inMinutes;
+      final secs = d.inSeconds % 60;
+      return secs > 0 ? '${mins}m ${secs}s' : '${mins}m';
+    } else {
+      final hours = d.inHours;
+      final mins = d.inMinutes % 60;
+      return mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
+    }
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'created_at': createdAt.millisecondsSinceEpoch,

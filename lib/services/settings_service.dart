@@ -66,4 +66,21 @@ class SettingsService {
   static bool get hasApiKeys => (deepgramApiKey.isNotEmpty || useLocalTranscription) && openaiApiKey.isNotEmpty;
   static bool get hasOpenAIKey => openaiApiKey.isNotEmpty;
   static bool get hasDeepgramKey => deepgramApiKey.isNotEmpty;
+  
+  // Notification settings
+  static bool get notifyBatteryLow => prefs.getBool('notify_battery_low') ?? true;
+  static set notifyBatteryLow(bool value) => prefs.setBool('notify_battery_low', value);
+  
+  static bool get notifyBatteryCritical => prefs.getBool('notify_battery_critical') ?? true;
+  static set notifyBatteryCritical(bool value) => prefs.setBool('notify_battery_critical', value);
+  
+  static bool get notifyTaskReminders => prefs.getBool('notify_task_reminders') ?? true;
+  static set notifyTaskReminders(bool value) => prefs.setBool('notify_task_reminders', value);
+  
+  static bool get notifyProcessing => prefs.getBool('notify_processing') ?? true;
+  static set notifyProcessing(bool value) => prefs.setBool('notify_processing', value);
+  
+  // iCloud backup
+  static bool get icloudBackupEnabled => prefs.getBool('icloud_backup_enabled') ?? false;
+  static set icloudBackupEnabled(bool value) => prefs.setBool('icloud_backup_enabled', value);
 }

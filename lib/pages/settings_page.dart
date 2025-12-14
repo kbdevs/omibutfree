@@ -1,10 +1,16 @@
 /// Settings page for API keys and app configuration
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../providers/app_provider.dart';
 import '../services/ble_service.dart';
 import '../services/settings_service.dart';
-import 'device_settings_page.dart'; // Added
+import '../services/database_service.dart';
+import 'device_settings_page.dart';
+import 'stats_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -270,13 +276,134 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 32),
 
+          // Notifications section
+          _buildSectionHeader('Notifications'),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Battery Low (50%)', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Alert when Omi reaches 50%',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  value: SettingsService.notifyBatteryLow,
+                  onChanged: (value) {
+                    setState(() => SettingsService.notifyBatteryLow = value);
+                  },
+                  activeColor: const Color(0xFF6C5CE7),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  title: const Text('Battery Critical (20%)', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Alert when Omi reaches 20%',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  value: SettingsService.notifyBatteryCritical,
+                  onChanged: (value) {
+                    setState(() => SettingsService.notifyBatteryCritical = value);
+                  },
+                  activeColor: const Color(0xFF6C5CE7),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  title: const Text('Task Reminders', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Reminders for scheduled tasks',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  value: SettingsService.notifyTaskReminders,
+                  onChanged: (value) {
+                    setState(() => SettingsService.notifyTaskReminders = value);
+                  },
+                  activeColor: const Color(0xFF6C5CE7),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  title: const Text('Processing Alerts', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Show "Processing: query" notifications',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  value: SettingsService.notifyProcessing,
+                  onChanged: (value) {
+                    setState(() => SettingsService.notifyProcessing = value);
+                  },
+                  activeColor: const Color(0xFF6C5CE7),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Data section
+          _buildSectionHeader('Data'),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00b894).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.download, color: Color(0xFF00b894)),
+                  ),
+                  title: const Text('Export All Data', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Save conversations, memories & tasks as JSON',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.3)),
+                  onTap: () => _exportAllData(context),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C5CE7).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.bar_chart, color: Color(0xFF6C5CE7)),
+                  ),
+                  title: const Text('Statistics', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('View your usage stats',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.3)),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StatsPage()),
+                  ),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  secondary: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0984e3).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.cloud_outlined, color: Color(0xFF0984e3)),
+                  ),
+                  title: const Text('iCloud Backup', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Sync data across devices',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                  value: SettingsService.icloudBackupEnabled,
+                  onChanged: (value) {
+                    setState(() => SettingsService.icloudBackupEnabled = value);
+                    if (value) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('iCloud backup enabled. Data will sync automatically.')),
+                      );
+                    }
+                  },
+                  activeColor: const Color(0xFF0984e3),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
           // About section
           Center(
             child: Column(
               children: [
                 Text('Omi Local', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('Version 1.0.0 • Self-Hosted', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
+                Text('Version 2.1.0 • Self-Hosted', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
               ],
             ),
           ),
@@ -332,5 +459,67 @@ class _SettingsPageState extends State<SettingsPage> {
     _deepgramController.dispose();
     _openaiController.dispose();
     super.dispose();
+  }
+
+  Future<void> _exportAllData(BuildContext context) async {
+    // Store navigator before async operations
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    // Get the render box for share positioning (needed on iPad)
+    final box = context.findRenderObject() as RenderBox?;
+    final sharePosition = box != null 
+        ? box.localToGlobal(Offset.zero) & box.size
+        : const Rect.fromLTWH(0, 0, 100, 100);
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Preparing export...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Get all data
+      final data = await DatabaseService.exportAllData();
+      final jsonString = const JsonEncoder.withIndent('  ').convert(data);
+      
+      // Save to temp file
+      final tempDir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final file = File('${tempDir.path}/omi_backup_$timestamp.json');
+      await file.writeAsString(jsonString);
+      
+      // Close loading dialog
+      navigator.pop();
+      
+      // Share the file with proper origin for iPad
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'Omi Local Backup',
+        sharePositionOrigin: sharePosition,
+      );
+    } catch (e) {
+      // Close loading dialog if open
+      navigator.pop();
+      
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
   }
 }

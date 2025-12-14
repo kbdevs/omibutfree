@@ -14,7 +14,10 @@ class ConversationsPage extends StatefulWidget {
 
 class _ConversationsPageState extends State<ConversationsPage> {
   bool _isSelectionMode = false;
+  bool _isSearching = false;
   final Set<String> _selectedIds = {};
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   void _toggleSelectionMode() {
     setState(() {
@@ -81,14 +84,52 @@ class _ConversationsPageState extends State<ConversationsPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Conversation> _filterConversations(List<Conversation> conversations) {
+    if (_searchQuery.isEmpty) return conversations;
+    final query = _searchQuery.toLowerCase();
+    return conversations.where((c) {
+      return c.title.toLowerCase().contains(query) ||
+             c.summary.toLowerCase().contains(query) ||
+             c.transcript.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isSelectionMode 
-          ? '${_selectedIds.length} selected' 
-          : 'Conversations'),
+        title: _isSearching 
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search conversations...',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: Colors.grey),
+              ),
+              style: const TextStyle(color: Colors.white),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            )
+          : Text(_isSelectionMode 
+              ? '${_selectedIds.length} selected' 
+              : 'Conversations'),
         actions: [
-          if (_isSelectionMode) ...[
+          if (_isSearching) ...[
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'Cancel Search',
+              onPressed: () => setState(() {
+                _isSearching = false;
+                _searchQuery = '';
+                _searchController.clear();
+              }),
+            ),
+          ] else if (_isSelectionMode) ...[
             Consumer<AppProvider>(
               builder: (context, provider, _) => IconButton(
                 icon: const Icon(Icons.select_all),
@@ -112,10 +153,20 @@ class _ConversationsPageState extends State<ConversationsPage> {
             Consumer<AppProvider>(
               builder: (context, provider, _) {
                 if (provider.conversations.isEmpty) return const SizedBox();
-                return IconButton(
-                  icon: const Icon(Icons.checklist),
-                  tooltip: 'Select',
-                  onPressed: _toggleSelectionMode,
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Search',
+                      onPressed: () => setState(() => _isSearching = true),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.checklist),
+                      tooltip: 'Select',
+                      onPressed: _toggleSelectionMode,
+                    ),
+                  ],
                 );
               },
             ),
@@ -145,12 +196,30 @@ class _ConversationsPageState extends State<ConversationsPage> {
             );
           }
 
+          final filteredConversations = _filterConversations(provider.conversations);
+          
+          if (filteredConversations.isEmpty && _searchQuery.isNotEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No results for "$_searchQuery"',
+                    style: const TextStyle(color: Colors.grey, fontSize: 18),
+                  ),
+                ],
+              ),
+            );
+          }
+
           return RefreshIndicator(
             onRefresh: provider.loadConversations,
             child: ListView.builder(
-              itemCount: provider.conversations.length,
+              itemCount: filteredConversations.length,
               itemBuilder: (context, index) {
-                final conversation = provider.conversations[index];
+                final conversation = filteredConversations[index];
                 final isSelected = _selectedIds.contains(conversation.id);
                 
                 return _ConversationTile(
@@ -230,9 +299,25 @@ class _ConversationTile extends StatelessWidget {
               style: TextStyle(color: Colors.grey.shade400),
             ),
           const SizedBox(height: 4),
-          Text(
-            _formatDate(conversation.createdAt),
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          Row(
+            children: [
+              Text(
+                _formatDate(conversation.createdAt),
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+              if (conversation.duration.inSeconds > 0) ...[
+                Text(
+                  ' • ',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+                Icon(Icons.timer_outlined, size: 12, color: Colors.grey.shade500),
+                const SizedBox(width: 2),
+                Text(
+                  conversation.formattedDuration,
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+              ],
+            ],
           ),
         ],
       ),
