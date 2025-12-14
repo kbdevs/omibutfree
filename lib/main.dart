@@ -109,6 +109,17 @@ class OmiLocalApp extends StatelessWidget {
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
+          dropdownMenuTheme: DropdownMenuThemeData(
+            menuStyle: MenuStyle(
+              backgroundColor: WidgetStatePropertyAll(const Color(0xFF2D2D2D)),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          popupMenuTheme: const PopupMenuThemeData(
+            color: Color(0xFF2D2D2D),
+          ),
           useMaterial3: true,
         ),
         theme: ThemeData(

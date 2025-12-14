@@ -222,9 +222,51 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                 ),
               ),
+              
+              const SizedBox(height: 32),
+              
+              // Reset All Stats
+              Center(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showResetConfirmation(context),
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  label: const Text('Reset All Statistics', style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showResetConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset All Statistics?'),
+        content: const Text('This will reset all API usage tracking (Deepgram minutes, OpenAI tokens, and estimated costs). This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              SettingsService.resetUsageStats();
+              setState(() {});
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('All statistics reset')),
+              );
+            },
+            child: const Text('Reset', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }

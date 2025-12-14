@@ -270,6 +270,25 @@ class _SettingsPageState extends State<SettingsPage> {
                     'For chat features. Get from platform.openai.com',
                     style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12),
                   ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: SettingsService.openaiModel,
+                    decoration: const InputDecoration(
+                      labelText: 'Model',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'gpt-5-nano', child: Text('GPT-5 Nano (cheapest)')),
+                      DropdownMenuItem(value: 'gpt-5-mini', child: Text('GPT-5 Mini')),
+                      DropdownMenuItem(value: 'gpt-5', child: Text('GPT-5')),
+                      DropdownMenuItem(value: 'gpt-4.1', child: Text('GPT-4.1')),
+                      DropdownMenuItem(value: 'gpt-4.1-mini', child: Text('GPT-4.1 Mini')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => SettingsService.openaiModel = value);
+                      }
+                    },
+                  ),
                 ],
               ),
             ),

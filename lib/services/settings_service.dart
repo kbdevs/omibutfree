@@ -26,7 +26,7 @@ class SettingsService {
   static String get language => prefs.getString('language') ?? 'en';
   static set language(String value) => prefs.setString('language', value);
 
-  static String get openaiModel => prefs.getString('openai_model') ?? 'gpt-4o-mini';
+  static String get openaiModel => prefs.getString('openai_model') ?? 'gpt-5-nano';
   static set openaiModel(String value) => prefs.setString('openai_model', value);
   
   // Transcription mode: 'cloud' (Deepgram), 'whisper', or 'sherpa'
@@ -112,6 +112,9 @@ class SettingsService {
   
   // Pricing (per 1M tokens for OpenAI, per minute for Deepgram)
   static const Map<String, Map<String, double>> openaiPricing = {
+    'gpt-5-nano': {'input': 0.10, 'output': 0.40},
+    'gpt-5-mini': {'input': 0.40, 'output': 1.60},
+    'gpt-5': {'input': 2.00, 'output': 8.00},
     'gpt-4o-mini': {'input': 0.15, 'output': 0.60},
     'gpt-4o': {'input': 2.50, 'output': 10.00},
     'gpt-4.1': {'input': 2.00, 'output': 8.00},

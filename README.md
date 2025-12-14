@@ -28,7 +28,7 @@ It connects directly to your Omi hardware (Friend/DevKit) via Bluetooth Low Ener
 ### 🔒 Privacy & Sovereignty
 
 - **100% Local Storage**: All memories, tasks, and conversations live in a SQLite database on your device.
-- **Your Keys, Your Model**: Bring your own OpenAI/Deepgram keys. No middleman servers.
+- **Your Keys, Your Model**: Bring your own OpenAI/Deepgram keys. No middleman servers. Deepgram gives **$200 free credit** on signup!
 - **Offline Capable**: Use local Whisper models to transcribe audio without an internet connection.
 - **Export All Data**: Export your entire database as JSON anytime.
 - **iCloud Backup**: Optional sync across your devices.
