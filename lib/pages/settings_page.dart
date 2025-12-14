@@ -279,11 +279,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     icon: Icon(Icons.arrow_drop_down, color: theme.colorScheme.onSurface.withOpacity(0.5)),
                     items: const [
-                      DropdownMenuItem(value: 'gpt-4o-mini', child: Text('GPT-4o Mini (cheapest)')),
-                      DropdownMenuItem(value: 'gpt-4o', child: Text('GPT-4o')),
+                      DropdownMenuItem(value: 'gpt-4o-mini', child: Text('GPT-4o Mini')),
                       DropdownMenuItem(value: 'gpt-4.1', child: Text('GPT-4.1')),
                       DropdownMenuItem(value: 'gpt-4.1-mini', child: Text('GPT-4.1 Mini')),
-                      DropdownMenuItem(value: 'gpt-4-turbo', child: Text('GPT-4 Turbo')),
+                      DropdownMenuItem(value: 'gpt-5-mini', child: Text('GPT-5 Mini')),
+                      DropdownMenuItem(value: 'gpt-5-nano', child: Text('GPT-5 Nano')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
