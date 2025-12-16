@@ -8,7 +8,6 @@ import 'settings_page.dart';
 import 'conversations_page.dart';
 import 'memories_page.dart';
 import 'tasks_page.dart';
-import 'sdcard_sync_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -462,18 +461,6 @@ class _DeviceTabState extends State<DeviceTab> {
                   ],
                 ),
               ),
-              // SD Card Sync button (if supported)
-              if (provider.hasStorageSupport && !provider.isUsingPhoneMic)
-                IconButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SdCardSyncPage()),
-                    );
-                  },
-                  icon: const Icon(Icons.sd_card, color: Color(0xFF6C5CE7)),
-                  tooltip: 'Sync SD Card',
-                ),
               TextButton(
                 onPressed: provider.isUsingPhoneMic 
                     ? provider.stopListening 

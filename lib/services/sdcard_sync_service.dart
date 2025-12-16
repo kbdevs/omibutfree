@@ -398,8 +398,9 @@ class SdCardSyncService {
   Future<void> _clearDeviceStorage(SdCardWal wal) async {
     try {
       // Command 1 = clear/acknowledge processed data
-      await _bleService.writeToStorage(wal.storageTotalBytes, 1, 0);
-      debugPrint('Cleared SD card storage up to offset ${wal.storageTotalBytes}');
+      // Parameters: fileNum (1 for SD card), command (1 = clear), offset (0)
+      await _bleService.writeToStorage(1, 1, 0);
+      debugPrint('Cleared SD card storage after syncing ${wal.storageTotalBytes} bytes');
     } catch (e) {
       debugPrint('Warning: Failed to clear device storage: $e');
       // Don't throw - data is already saved locally

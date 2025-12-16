@@ -328,19 +328,19 @@ class _SdCardSyncPageState extends State<SdCardSyncPage> with TickerProviderStat
       
       setState(() {
         _isClearing = false;
-        _statusMessage = success ? 'Device storage cleared' : 'Failed to clear storage';
+        _pendingWal = null; // Clear from UI after command sent
+        _statusMessage = success 
+            ? 'Device storage cleared - refresh to verify' 
+            : 'Failed to clear storage';
       });
       
-      if (success) {
-        await _checkForData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Device storage cleared'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Device storage cleared'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     }
   }
