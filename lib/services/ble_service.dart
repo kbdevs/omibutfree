@@ -30,6 +30,49 @@ const String storageDataStreamServiceUuid = '30295780-4301-eabd-2904-2849adfeae4
 const String storageDataStreamCharacteristicUuid = '30295781-4301-eabd-2904-2849adfeae43';
 const String storageReadControlCharacteristicUuid = '30295782-4301-eabd-2904-2849adfeae43';
 
+// Audio Codec IDs
+enum BleAudioCodec {
+  pcm8(1),
+  opus(20),
+  opusFS320(21);
+
+  final int codecId;
+  const BleAudioCodec(this.codecId);
+
+  int getFramesPerSecond() {
+    switch (this) {
+      case BleAudioCodec.pcm8:
+        return 100;
+      case BleAudioCodec.opus:
+        return 100;
+      case BleAudioCodec.opusFS320:
+        return 50;
+    }
+  }
+
+  int getFrameSize() {
+    switch (this) {
+      case BleAudioCodec.pcm8:
+        return 160;
+      case BleAudioCodec.opus:
+        return 160;
+      case BleAudioCodec.opusFS320:
+        return 320;
+    }
+  }
+
+  int getFramesLengthInBytes() {
+    switch (this) {
+      case BleAudioCodec.pcm8:
+        return 160;
+      case BleAudioCodec.opus:
+        return 80;
+      case BleAudioCodec.opusFS320:
+        return 120;
+    }
+  }
+}
+
 enum DeviceConnectionState {
   disconnected,
   connecting,
@@ -442,12 +485,190 @@ class BleService {
     return deviceInfo;
   }
 
+  // =============== SD Card / Storage Methods ===============
 
+  /// Get audio codec from the Omi device
+  Future<BleAudioCodec> getAudioCodec() async {
+    if (_connectedDevice == null) return BleAudioCodec.pcm8;
+    
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == omiServiceUuid.toLowerCase()) {
+          for (var char in service.characteristics) {
+            if (char.uuid.toString().toLowerCase() == audioCodecCharacteristicUuid.toLowerCase()) {
+              final codecValue = await char.read();
+              if (codecValue.isNotEmpty) {
+                final codecId = codecValue[0];
+                switch (codecId) {
+                  case 1: return BleAudioCodec.pcm8;
+                  case 20: return BleAudioCodec.opus;
+                  case 21: return BleAudioCodec.opusFS320;
+                  default: return BleAudioCodec.pcm8;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error reading audio codec: $e');
+    }
+    return BleAudioCodec.pcm8;
+  }
+
+  /// Get storage list (returns total bytes and offset if available)
+  Future<List<int>> getStorageList() async {
+    if (_connectedDevice == null) {
+      debugPrint('getStorageList: No connected device');
+      return [];
+    }
+    
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      debugPrint('getStorageList: Discovered ${services.length} services');
+      
+      // Log all service UUIDs to help debug
+      for (var service in services) {
+        debugPrint('  Service: ${service.uuid}');
+      }
+      
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == storageDataStreamServiceUuid.toLowerCase()) {
+          debugPrint('getStorageList: Found storage service!');
+          for (var char in service.characteristics) {
+            debugPrint('  Characteristic: ${char.uuid}');
+            if (char.uuid.toString().toLowerCase() == storageReadControlCharacteristicUuid.toLowerCase()) {
+              debugPrint('getStorageList: Found storage control characteristic, reading...');
+              final storageValue = await char.read();
+              debugPrint('getStorageList: Read ${storageValue.length} bytes');
+              
+              List<int> storageLengths = [];
+              if (storageValue.isNotEmpty) {
+                int totalEntries = (storageValue.length / 4).toInt();
+                debugPrint('Storage list: $totalEntries items');
+                
+                for (int i = 0; i < totalEntries; i++) {
+                  int baseIndex = i * 4;
+                  var result = ((storageValue[baseIndex] |
+                              (storageValue[baseIndex + 1] << 8) |
+                              (storageValue[baseIndex + 2] << 16) |
+                              (storageValue[baseIndex + 3] << 24)) &
+                          0xFFFFFFFF)
+                      .toSigned(32);
+                  storageLengths.add(result);
+                }
+              }
+              debugPrint('Storage lengths: $storageLengths');
+              return storageLengths;
+            }
+          }
+        }
+      }
+      debugPrint('getStorageList: Storage service not found on this device');
+    } catch (e) {
+      debugPrint('Error reading storage list: $e');
+    }
+    return [];
+  }
+
+  /// Check if SD card storage is available
+  Future<bool> hasStorageSupport() async {
+    final storageList = await getStorageList();
+    return storageList.isNotEmpty;
+  }
+
+  /// Write command to storage (for reading or clearing)
+  /// command: 0 = start reading, 1 = clear/acknowledge
+  Future<bool> writeToStorage(int fileNum, int command, int offset) async {
+    if (_connectedDevice == null) return false;
+    
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == storageDataStreamServiceUuid.toLowerCase()) {
+          for (var char in service.characteristics) {
+            if (char.uuid.toString().toLowerCase() == storageDataStreamCharacteristicUuid.toLowerCase()) {
+              debugPrint('Writing to storage: file=$fileNum, cmd=$command, offset=$offset');
+              
+              var offsetBytes = [
+                (offset >> 24) & 0xFF,
+                (offset >> 16) & 0xFF,
+                (offset >> 8) & 0xFF,
+                offset & 0xFF,
+              ];
+              
+              await char.write([
+                command & 0xFF, 
+                fileNum & 0xFF, 
+                offsetBytes[0], 
+                offsetBytes[1], 
+                offsetBytes[2], 
+                offsetBytes[3]
+              ], withoutResponse: false);
+              return true;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error writing to storage: $e');
+    }
+    return false;
+  }
+
+  final _storageController = StreamController<List<int>>.broadcast();
+  Stream<List<int>> get storageStream => _storageController.stream;
+  StreamSubscription? _storageSubscription;
+  BluetoothCharacteristic? _storageCharacteristic;
+
+  /// Start listening for storage data stream
+  Future<StreamSubscription?> startStorageStream() async {
+    if (_connectedDevice == null) return null;
+    
+    try {
+      final services = await _connectedDevice!.discoverServices();
+      for (var service in services) {
+        if (service.uuid.toString().toLowerCase() == storageDataStreamServiceUuid.toLowerCase()) {
+          for (var char in service.characteristics) {
+            if (char.uuid.toString().toLowerCase() == storageDataStreamCharacteristicUuid.toLowerCase()) {
+              _storageCharacteristic = char;
+              await char.setNotifyValue(true);
+              _storageSubscription = char.onValueReceived.listen((value) {
+                if (value.isNotEmpty) {
+                  _storageController.add(value);
+                }
+              });
+              debugPrint('Storage stream started');
+              return _storageSubscription;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error starting storage stream: $e');
+    }
+    return null;
+  }
+
+  /// Stop storage stream
+  Future<void> stopStorageStream() async {
+    await _storageSubscription?.cancel();
+    _storageSubscription = null;
+    try {
+      await _storageCharacteristic?.setNotifyValue(false);
+    } catch (e) {
+      debugPrint('Error stopping storage stream: $e');
+    }
+    _storageCharacteristic = null;
+  }
 
   void dispose() {
     _stateController.close();
     _audioController.close();
     _batteryController.close();
     _buttonController.close();
+    _storageController.close();
+    _storageSubscription?.cancel();
   }
 }

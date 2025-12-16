@@ -11,6 +11,7 @@ import '../services/settings_service.dart';
 import '../services/database_service.dart';
 import 'device_settings_page.dart';
 import 'stats_page.dart';
+import 'sdcard_sync_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -386,6 +387,35 @@ class _SettingsPageState extends State<SettingsPage> {
                     context,
                     MaterialPageRoute(builder: (_) => const StatsPage()),
                   ),
+                ),
+                const Divider(height: 1),
+                Consumer<AppProvider>(
+                  builder: (context, provider, _) {
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFe17055).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.sd_card, color: Color(0xFFe17055)),
+                      ),
+                      title: const Text('SD Card Sync', style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        provider.hasStorageSupport 
+                            ? 'Sync offline recordings from device'
+                            : 'Connect Omi to access',
+                        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.3)),
+                      enabled: provider.deviceState == DeviceConnectionState.connected,
+                      onTap: provider.deviceState == DeviceConnectionState.connected 
+                          ? () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SdCardSyncPage()),
+                            )
+                          : null,
+                    );
+                  },
                 ),
                 const Divider(height: 1),
                 SwitchListTile(

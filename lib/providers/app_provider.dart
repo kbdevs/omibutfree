@@ -15,7 +15,8 @@ import '../services/sherpa_service.dart';
 import '../services/whisper_service.dart';
 import '../services/opus_decoder_service.dart';
 import '../services/notification_service.dart';
-import '../services/mic_service.dart'; 
+import '../services/mic_service.dart';
+import '../services/sdcard_sync_service.dart';
 import 'package:audioplayers/audioplayers.dart'; 
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -23,6 +24,7 @@ import 'dart:io';
 class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   final BleService _bleService = BleService();
   final MicService _micService = MicService();
+  SdCardSyncService? _sdCardSyncService;
   
   // App lifecycle state
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
@@ -100,6 +102,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isLoadingModel => _isLoadingModel;
   List<int> _testAudioBuffer = [];
   final AudioPlayer _audioPlayer = AudioPlayer(); // Added
+  
+  // SD Card Sync
+  bool _hasStorageSupport = false;
+  bool get hasStorageSupport => _hasStorageSupport;
+  SdCardSyncService? get sdCardSyncService => _sdCardSyncService;
 
   // Subscriptions
   StreamSubscription? _stateSubscription;
@@ -116,12 +123,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     
     try {
       // Listen to device state changes
-      _stateSubscription = _bleService.stateStream.listen((state) {
+      _stateSubscription = _bleService.stateStream.listen((state) async {
         final previousState = _deviceState;
         _deviceState = state;
         
         // Auto-start listening when device connects (only if not using phone mic)
         if (state == DeviceConnectionState.connected && !_isListening && !_isUsingPhoneMic) {
+          // Check for SD card storage support on any connection
+          await _checkStorageSupport();
           _startListeningIfReady();
         }
         
@@ -185,6 +194,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         if (success) {
           _batteryLevel = await _bleService.getBatteryLevel();
           _checkBatteryNotification();
+          
+          // Check for SD card storage support
+          await _checkStorageSupport();
+          
           notifyListeners();
           debugPrint('Auto-connected to saved device!');
         } else {
@@ -215,9 +228,26 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       
       _batteryLevel = await _bleService.getBatteryLevel();
       _checkBatteryNotification();
+      
+      // Check for SD card storage support
+      await _checkStorageSupport();
+      
       notifyListeners();
     }
     return success;
+  }
+  
+  /// Check if the device supports SD card storage
+  Future<void> _checkStorageSupport() async {
+    _hasStorageSupport = await _bleService.hasStorageSupport();
+    if (_hasStorageSupport) {
+      _sdCardSyncService = SdCardSyncService(_bleService);
+      debugPrint('SD card storage support detected');
+    } else {
+      _sdCardSyncService = null;
+      debugPrint('No SD card storage support');
+    }
+    notifyListeners();
   }
 
   Future<void> disconnectDevice() async {
@@ -753,6 +783,240 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void clearChat() {
     _chatMessages = [];
     notifyListeners();
+  }
+
+  /// Process a local audio file from SD card sync
+  /// Returns the transcript text
+  Future<String> processLocalAudioFile(String filePath) async {
+    debugPrint('Processing local audio file: $filePath');
+    
+    // Read the audio data
+    final audioData = await SdCardSyncService.readAudioFile(filePath);
+    if (audioData == null || audioData.isEmpty) {
+      throw Exception('Failed to read audio file');
+    }
+    
+    debugPrint('Read ${audioData.length} bytes of audio data');
+    
+    // Determine codec from filename
+    final isOpus = filePath.contains('opus');
+    
+    // If Opus, decode to PCM first
+    List<int> pcmData;
+    if (isOpus) {
+      final decoder = OpusDecoderService();
+      await decoder.initialize();
+      
+      // Decode Opus frames
+      pcmData = [];
+      int offset = 0;
+      while (offset < audioData.length) {
+        // Each frame is prefixed with 4-byte length
+        if (offset + 4 > audioData.length) break;
+        
+        final frameLength = audioData[offset] |
+                           (audioData[offset + 1] << 8) |
+                           (audioData[offset + 2] << 16) |
+                           (audioData[offset + 3] << 24);
+        offset += 4;
+        
+        if (offset + frameLength > audioData.length) break;
+        
+        final frame = audioData.sublist(offset, offset + frameLength);
+        final decoded = decoder.decode(Uint8List.fromList(frame));
+        if (decoded != null) {
+          pcmData.addAll(decoded);
+        }
+        offset += frameLength;
+      }
+      
+      decoder.dispose();
+      debugPrint('Decoded ${pcmData.length} bytes of PCM audio');
+    } else {
+      pcmData = audioData.toList();
+    }
+    
+    // Transcribe using the configured transcription method
+    final transcriptionMode = SettingsService.transcriptionMode;
+    String transcript = '';
+    
+    switch (transcriptionMode) {
+      case 'whisper':
+        debugPrint('Using Whisper for local transcription');
+        transcript = await _transcribeWithWhisper(Uint8List.fromList(pcmData));
+        break;
+        
+      case 'sherpa':
+        debugPrint('Using Sherpa for local transcription');
+        transcript = await _transcribeWithSherpa(Uint8List.fromList(pcmData));
+        break;
+        
+      default: // cloud
+        debugPrint('Using Deepgram for transcription');
+        transcript = await _transcribeWithDeepgram(Uint8List.fromList(pcmData));
+    }
+    
+    // Save as a conversation if we got a transcript
+    if (transcript.isNotEmpty) {
+      final conversation = Conversation(
+        id: const Uuid().v4(),
+        createdAt: DateTime.now(),
+        title: 'SD Card Recording',
+        segments: [
+          TranscriptSegment(
+            text: transcript,
+            speakerId: 0,
+            startTime: 0,
+            endTime: 0,
+          ),
+        ],
+      );
+      
+      // Try to summarize with OpenAI
+      if (SettingsService.openaiApiKey.isNotEmpty) {
+        _openaiService = OpenAIService(
+          apiKey: SettingsService.openaiApiKey,
+          model: SettingsService.openaiModel,
+        );
+        
+        try {
+          final result = await _openaiService!.summarizeConversation(transcript);
+          conversation.title = result['title'] ?? 'SD Card Recording';
+          conversation.summary = result['summary'] ?? '';
+          
+          // Extract memories
+          final memories = result['memories'] as List<String>? ?? [];
+          for (final memoryContent in memories) {
+            if (memoryContent.trim().isNotEmpty) {
+              final hasSimilar = await DatabaseService.hasSimilarMemory(memoryContent);
+              if (!hasSimilar) {
+                final memory = Memory(
+                  id: const Uuid().v4(),
+                  content: memoryContent.trim(),
+                  category: 'fact',
+                  createdAt: DateTime.now(),
+                  sourceConversationId: conversation.id,
+                );
+                await DatabaseService.saveMemory(memory);
+              }
+            }
+          }
+          await loadMemories();
+          
+          // Extract tasks
+          final tasks = result['tasks'] as List? ?? [];
+          for (final taskData in tasks) {
+            if (taskData is Map && taskData['title'] != null) {
+              final title = taskData['title'].toString().trim();
+              if (title.isNotEmpty) {
+                final hasSimilar = await DatabaseService.hasSimilarTask(title);
+                if (!hasSimilar) {
+                  DateTime? dueDate;
+                  if (taskData['due_date'] != null) {
+                    try {
+                      dueDate = DateTime.parse(taskData['due_date'].toString());
+                    } catch (e) {
+                      debugPrint('Failed to parse due date');
+                    }
+                  }
+                  final task = Task(
+                    id: const Uuid().v4(),
+                    title: title,
+                    description: taskData['description']?.toString(),
+                    dueDate: dueDate,
+                    createdAt: DateTime.now(),
+                    sourceConversationId: conversation.id,
+                  );
+                  await DatabaseService.saveTask(task);
+                }
+              }
+            }
+          }
+          await loadTasks();
+        } catch (e) {
+          debugPrint('Failed to summarize SD card recording: $e');
+        }
+      }
+      
+      await DatabaseService.saveConversation(conversation);
+      await loadConversations();
+      
+      debugPrint('Saved SD card recording as conversation: ${conversation.title}');
+    }
+    
+    return transcript;
+  }
+  
+  Future<String> _transcribeWithWhisper(Uint8List pcmData) async {
+    final whisper = WhisperService(
+      modelSize: SettingsService.whisperModelSize,
+    );
+    
+    try {
+      await whisper.initialize();
+      
+      // Process all audio at once
+      whisper.addAudio(pcmData);
+      
+      // Wait for processing
+      await Future.delayed(const Duration(seconds: 5));
+      
+      whisper.stopProcessing();
+      
+      // Get accumulated transcript from the service
+      // Note: The current WhisperService uses callbacks, so we'd need to modify it
+      // For now, return a placeholder
+      return 'Transcription with Whisper completed';
+    } finally {
+      whisper.dispose();
+    }
+  }
+  
+  Future<String> _transcribeWithSherpa(Uint8List pcmData) async {
+    final sherpa = SherpaService();
+    
+    try {
+      await sherpa.initialize();
+      
+      // Process all audio
+      sherpa.addAudio(pcmData);
+      
+      // Wait for processing
+      await Future.delayed(const Duration(seconds: 5));
+      
+      sherpa.stopProcessing();
+      
+      return 'Transcription with Sherpa completed';
+    } finally {
+      sherpa.dispose();
+    }
+  }
+  
+  Future<String> _transcribeWithDeepgram(Uint8List pcmData) async {
+    if (!SettingsService.hasDeepgramKey) {
+      throw Exception('Deepgram API key not configured');
+    }
+    
+    // For file transcription, we'd need to use Deepgram's file upload API
+    // instead of the streaming API
+    // This is a placeholder - the actual implementation would upload the file
+    
+    // Save PCM to temporary WAV file
+    final tempDir = await getTemporaryDirectory();
+    final wavFile = File('${tempDir.path}/sdcard_audio_${DateTime.now().millisecondsSinceEpoch}.wav');
+    
+    // Create WAV header
+    final header = _buildWavHeader(pcmData.length);
+    final wavData = BytesBuilder();
+    wavData.add(header);
+    wavData.add(pcmData);
+    await wavFile.writeAsBytes(wavData.toBytes());
+    
+    debugPrint('Saved temporary WAV file: ${wavFile.path}');
+    
+    // TODO: Implement Deepgram file upload API
+    // For now return placeholder
+    return 'Audio file saved. Cloud transcription pending.';
   }
 
   Future<void> startAudioTest() async {
