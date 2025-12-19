@@ -118,4 +118,4 @@ This project is open source and free forever. We welcome contributions!
 
 ---
 
-**Built with ❤️ by KB Devs**
+**Built with ❤️ by kbdevs**
