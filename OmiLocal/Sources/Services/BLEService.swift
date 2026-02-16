@@ -143,7 +143,9 @@ extension BLEService: CBCentralManagerDelegate {
         case .poweredOn:
             break
         case .poweredOff, .unauthorized, .unsupported:
-            deviceState = .disconnected
+            DispatchQueue.main.async {
+                self.deviceState = .disconnected
+            }
         default:
             break
         }
