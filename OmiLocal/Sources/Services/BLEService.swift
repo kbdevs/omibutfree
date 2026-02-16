@@ -176,10 +176,16 @@ extension BLEService: CBCentralManagerDelegate {
             Self.buttonServiceUUID,
             Self.storageServiceUUID
         ])
+        
+        DispatchQueue.main.async {
+            self.deviceState = .connected
+        }
     }
     
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        deviceState = .disconnected
+        DispatchQueue.main.async {
+            self.deviceState = .disconnected
+        }
     }
     
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
@@ -187,7 +193,9 @@ extension BLEService: CBCentralManagerDelegate {
         audioCharacteristic = nil
         buttonCharacteristic = nil
         storageCharacteristic = nil
-        deviceState = .disconnected
+        DispatchQueue.main.async {
+            self.deviceState = .disconnected
+        }
     }
 }
 
