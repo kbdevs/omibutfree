@@ -25,6 +25,7 @@ class BLEService: NSObject, ObservableObject {
     
     private var scanStream: AsyncStream<[DiscoveredDevice]>?
     private var scanContinuation: AsyncStream<[DiscoveredDevice]>.Continuation?
+    private var connectContinuation: CheckedContinuation<Bool, Never>?
     
     override init() {
         super.init()
@@ -58,12 +59,15 @@ class BLEService: NSObject, ObservableObject {
         deviceState = .connecting
         
         return await withCheckedContinuation { continuation in
+            self.connectContinuation = continuation
             centralManager.connect(peripheral, options: nil)
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-                if self?.deviceState == .connecting {
-                    self?.deviceState = .disconnected
-                    continuation.resume(returning: false)
+                guard let self = self else { return }
+                if self.deviceState == .connecting {
+                    self.deviceState = .disconnected
+                    self.connectContinuation?.resume(returning: false)
+                    self.connectContinuation = nil
                 }
             }
         }
@@ -72,13 +76,17 @@ class BLEService: NSObject, ObservableObject {
     func connectToSavedDevice(_ deviceId: String) async -> Bool {
         guard let peripheral = findPeripheral(by: deviceId) else { return false }
         deviceState = .connecting
-        centralManager.connect(peripheral, options: nil)
         
         return await withCheckedContinuation { continuation in
+            self.connectContinuation = continuation
+            centralManager.connect(peripheral, options: nil)
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-                if self?.deviceState == .connecting {
-                    self?.deviceState = .disconnected
-                    continuation.resume(returning: false)
+                guard let self = self else { return }
+                if self.deviceState == .connecting {
+                    self.deviceState = .disconnected
+                    self.connectContinuation?.resume(returning: false)
+                    self.connectContinuation = nil
                 }
             }
         }
