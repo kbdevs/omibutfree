@@ -7,17 +7,17 @@ import 'pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     // Initialize settings
     await SettingsService.init();
-    
+
     // Initialize notifications
     await NotificationService().initialize();
   } catch (e) {
     debugPrint('Settings init error: $e');
   }
-  
+
   runApp(const OmiLocalApp());
 }
 
@@ -33,7 +33,9 @@ class OmiLocalApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         themeMode: ThemeMode.dark,
         darkTheme: ThemeData.dark().copyWith(
-          scaffoldBackgroundColor: const Color(0xFF0A0A0A), // Deep premium black
+          scaffoldBackgroundColor: const Color(
+            0xFF0A0A0A,
+          ), // Deep premium black
           primaryColor: const Color(0xFF6C5CE7), // Vivid violet
           colorScheme: const ColorScheme.dark(
             primary: Color(0xFF6C5CE7),
@@ -107,7 +109,9 @@ class OmiLocalApp extends StatelessWidget {
             contentTextStyle: const TextStyle(color: Colors.white),
             actionTextColor: const Color(0xFFA29BFE),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           dropdownMenuTheme: DropdownMenuThemeData(
             menuStyle: MenuStyle(
@@ -117,9 +121,7 @@ class OmiLocalApp extends StatelessWidget {
               ),
             ),
           ),
-          popupMenuTheme: const PopupMenuThemeData(
-            color: Color(0xFF2D2D2D),
-          ),
+          popupMenuTheme: const PopupMenuThemeData(color: Color(0xFF2D2D2D)),
           useMaterial3: true,
         ),
         theme: ThemeData(
@@ -129,10 +131,7 @@ class OmiLocalApp extends StatelessWidget {
         home: const HomePage(),
         builder: (context, child) {
           return Stack(
-            children: [
-              if (child != null) child,
-              const ListeningOverlay(),
-            ],
+            children: [if (child != null) child, const ListeningOverlay()],
           );
         },
       ),
@@ -168,11 +167,7 @@ class ListeningOverlay extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.mic,
-                    color: Colors.white,
-                    size: 48,
-                  ),
+                  child: const Icon(Icons.mic, color: Colors.white, size: 48),
                 ),
                 const SizedBox(height: 24),
                 const Text(
@@ -186,7 +181,7 @@ class ListeningOverlay extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Release to finish',
+                  'Click again to finish',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: 16,

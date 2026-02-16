@@ -1,0 +1,363 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 63;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0A80E54A3E22E75B78E3750F /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8769BB1AD1E86C8C128C0585 /* OpenAIService.swift */; };
+		28F781D15724412818C9F8D6 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C5632252359F8D305DBCD7 /* AppState.swift */; };
+		3480A136077D1ABC8FF94299 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B41BB24C88B1D77D8256934 /* DatabaseService.swift */; };
+		5B0F83167790E9FB81C5044D /* MicrophoneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA94998E2315A4F89C7637F1 /* MicrophoneService.swift */; };
+		5CDC00CDCA4124B7687D6ACF /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C43FE3EFC7CDD0607BEBB70 /* Models.swift */; };
+		62532718EC496CCE96E1C411 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6391C39C48D6AB6AF593CD14 /* NotificationService.swift */; };
+		7CA90EE8D7AB73F4BC92821F /* BLEService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93413BFA601DA7AF469CD796 /* BLEService.swift */; };
+		B9C54174413F6F3799FFDCD6 /* SettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A6BD861E4FB7C33942B9BE /* SettingsService.swift */; };
+		C0C97A20174849A23F0A0A20 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */; };
+		C93F48A4EAB0DEFD25F8EAC1 /* OmiLocalApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC86E288254D4521399AD41 /* OmiLocalApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		12C5632252359F8D305DBCD7 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		3C43FE3EFC7CDD0607BEBB70 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		47A6BD861E4FB7C33942B9BE /* SettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsService.swift; sourceTree = "<group>"; };
+		5B41BB24C88B1D77D8256934 /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
+		6391C39C48D6AB6AF593CD14 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		8769BB1AD1E86C8C128C0585 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
+		8BC86E288254D4521399AD41 /* OmiLocalApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmiLocalApp.swift; sourceTree = "<group>"; };
+		93413BFA601DA7AF469CD796 /* BLEService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEService.swift; sourceTree = "<group>"; };
+		AA94998E2315A4F89C7637F1 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
+		AD9EAC0AB3288CEED0AE38A7 /* OmiLocal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OmiLocal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		353A566C5A2A9283FFD6EE0C /* App */ = {
+			isa = PBXGroup;
+			children = (
+				12C5632252359F8D305DBCD7 /* AppState.swift */,
+				8BC86E288254D4521399AD41 /* OmiLocalApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		3C5C7CA0EF84F49F07E75E83 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				93413BFA601DA7AF469CD796 /* BLEService.swift */,
+				5B41BB24C88B1D77D8256934 /* DatabaseService.swift */,
+				AA94998E2315A4F89C7637F1 /* MicrophoneService.swift */,
+				6391C39C48D6AB6AF593CD14 /* NotificationService.swift */,
+				8769BB1AD1E86C8C128C0585 /* OpenAIService.swift */,
+				47A6BD861E4FB7C33942B9BE /* SettingsService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A29D8CBE79D41B9A70355C34 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				3C43FE3EFC7CDD0607BEBB70 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		C2709768F322F47DE1C7391A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D6CF642C5BD6D6BA30C57BBA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AD9EAC0AB3288CEED0AE38A7 /* OmiLocal.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E530F7698D990D9025B33B93 = {
+			isa = PBXGroup;
+			children = (
+				EA1EF00BB1F076D35AAEDBD9 /* Sources */,
+				D6CF642C5BD6D6BA30C57BBA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EA1EF00BB1F076D35AAEDBD9 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				353A566C5A2A9283FFD6EE0C /* App */,
+				A29D8CBE79D41B9A70355C34 /* Models */,
+				3C5C7CA0EF84F49F07E75E83 /* Services */,
+				C2709768F322F47DE1C7391A /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		06FD900409BBB5C623C3EBC7 /* OmiLocal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB1455C712A55C74AF249223 /* Build configuration list for PBXNativeTarget "OmiLocal" */;
+			buildPhases = (
+				391D10A1C197F209AB5D406F /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OmiLocal;
+			packageProductDependencies = (
+			);
+			productName = OmiLocal;
+			productReference = AD9EAC0AB3288CEED0AE38A7 /* OmiLocal.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A98C8716C8206A91121C48AC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = 1785A2AA2F8BBC33793C9B94 /* Build configuration list for PBXProject "OmiLocal" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E530F7698D990D9025B33B93;
+			minimizedProjectReferenceProxies = 1;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				06FD900409BBB5C623C3EBC7 /* OmiLocal */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		391D10A1C197F209AB5D406F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				28F781D15724412818C9F8D6 /* AppState.swift in Sources */,
+				7CA90EE8D7AB73F4BC92821F /* BLEService.swift in Sources */,
+				C0C97A20174849A23F0A0A20 /* ContentView.swift in Sources */,
+				3480A136077D1ABC8FF94299 /* DatabaseService.swift in Sources */,
+				5B0F83167790E9FB81C5044D /* MicrophoneService.swift in Sources */,
+				5CDC00CDCA4124B7687D6ACF /* Models.swift in Sources */,
+				62532718EC496CCE96E1C411 /* NotificationService.swift in Sources */,
+				C93F48A4EAB0DEFD25F8EAC1 /* OmiLocalApp.swift in Sources */,
+				0A80E54A3E22E75B78E3750F /* OpenAIService.swift in Sources */,
+				B9C54174413F6F3799FFDCD6 /* SettingsService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		020E84DB868034581A1C8DDD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 7P5XQ4V7S5;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Omi needs microphone access to record conversations";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "audio bluetooth-central";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.omi.local;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		270AF7D5FB6672C8FCFFE8E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 7P5XQ4V7S5;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Omi needs microphone access to record conversations";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "audio bluetooth-central";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.omi.local;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AD822009B9E7538A99E4F400 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EAEBEE05EA634434DCB0E92C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1785A2AA2F8BBC33793C9B94 /* Build configuration list for PBXProject "OmiLocal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD822009B9E7538A99E4F400 /* Debug */,
+				EAEBEE05EA634434DCB0E92C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FB1455C712A55C74AF249223 /* Build configuration list for PBXNativeTarget "OmiLocal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				270AF7D5FB6672C8FCFFE8E4 /* Debug */,
+				020E84DB868034581A1C8DDD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A98C8716C8206A91121C48AC /* Project object */;
+}

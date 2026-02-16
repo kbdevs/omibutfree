@@ -17,7 +17,7 @@ import '../services/opus_decoder_service.dart';
 import '../services/notification_service.dart';
 import '../services/mic_service.dart';
 import '../services/sdcard_sync_service.dart';
-import 'package:audioplayers/audioplayers.dart'; 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
@@ -25,7 +25,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   final BleService _bleService = BleService();
   final MicService _micService = MicService();
   SdCardSyncService? _sdCardSyncService;
-  
+
   // App lifecycle state
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   DeepgramService? _deepgramService; // Transcription services
@@ -39,24 +39,24 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   DeviceConnectionState get deviceState => _deviceState;
   int? _batteryLevel;
   int? get batteryLevel => _batteryLevel;
-  
+
   // Battery notification tracking (to avoid duplicate alerts)
   bool _notified50 = false;
   bool _notified20 = false;
 
   bool _isListening = false;
   bool get isListening => _isListening;
-  
+
   // Phone mic state
   bool _isUsingPhoneMic = false;
   bool get isUsingPhoneMic => _isUsingPhoneMic;
-  
+
   // Current conversation being recorded
   Conversation? _currentConversation;
   Conversation? get currentConversation => _currentConversation;
   List<TranscriptSegment> _liveSegments = [];
   List<TranscriptSegment> get liveSegments => _liveSegments;
-  
+
   // Silence detection for auto-save
   static const Duration silenceTimeout = Duration(minutes: 2);
   Timer? _silenceTimer;
@@ -72,17 +72,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   String _aiQueryTranscript = ''; // Captured text from active transcriber
   bool _isHoldToAskActive = false;
   bool _isAiQueryProcessing = false; // Pauses main conversation transcription
+  bool _isProcessingButtonEvent = false; // Debounce for button events
   bool get isHoldToAskActive => _isHoldToAskActive;
   bool get isAiQueryProcessing => _isAiQueryProcessing;
 
   // Conversations list
   List<Conversation> _conversations = [];
   List<Conversation> get conversations => _conversations;
-  
+
   // Memories list
   List<Memory> _memories = [];
   List<Memory> get memories => _memories;
-  
+
   // Tasks list
   List<Task> _tasks = [];
   List<Task> get tasks => _tasks;
@@ -96,13 +97,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   // Audio Test
   bool _isTestingAudio = false;
   bool get isTestingAudio => _isTestingAudio;
-  
+
   // Model loading state
   bool _isLoadingModel = false;
   bool get isLoadingModel => _isLoadingModel;
   List<int> _testAudioBuffer = [];
   final AudioPlayer _audioPlayer = AudioPlayer(); // Added
-  
+
   // SD Card Sync
   bool _hasStorageSupport = false;
   bool get hasStorageSupport => _hasStorageSupport;
@@ -120,37 +121,39 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _init() async {
     // Register app lifecycle observer
     WidgetsBinding.instance.addObserver(this);
-    
+
     try {
       // Listen to device state changes
       _stateSubscription = _bleService.stateStream.listen((state) async {
         final previousState = _deviceState;
         _deviceState = state;
-        
+
         // Auto-start listening when device connects (only if not using phone mic)
-        if (state == DeviceConnectionState.connected && !_isListening && !_isUsingPhoneMic) {
+        if (state == DeviceConnectionState.connected &&
+            !_isListening &&
+            !_isUsingPhoneMic) {
           // Check for SD card storage support on any connection
           await _checkStorageSupport();
           _startListeningIfReady();
         }
-        
+
         if (state == DeviceConnectionState.disconnected) {
-           // Only stop listening if we were using Omi, not phone mic
-           if (_isListening && !_isUsingPhoneMic) {
-             stopListening();
-           }
-           
-           // Notify user of disconnection if it was previously connected
-           // Only show notification if app is in background
-           if (previousState == DeviceConnectionState.connected && 
-               _appLifecycleState != AppLifecycleState.resumed) {
-             NotificationService().showNotification(
-               "Omi Disconnected", 
-               "Your device connection was lost."
-             );
-           }
+          // Only stop listening if we were using Omi, not phone mic
+          if (_isListening && !_isUsingPhoneMic) {
+            stopListening();
+          }
+
+          // Notify user of disconnection if it was previously connected
+          // Only show notification if app is in background
+          if (previousState == DeviceConnectionState.connected &&
+              _appLifecycleState != AppLifecycleState.resumed) {
+            NotificationService().showNotification(
+              "Omi Disconnected",
+              "Your device connection was lost.",
+            );
+          }
         }
-        
+
         notifyListeners();
       });
 
@@ -164,23 +167,24 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {
       debugPrint('AppProvider init error: $e');
     }
-    
+
     // Start auto-reconnect timer
     _startReconnectTimer();
   }
-  
+
   void _startReconnectTimer() {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!_isAutoReconnectEnabled) return;
-      
+
       // Don't auto-reconnect when using phone mic
       if (_isUsingPhoneMic || _isListening) return;
-      
+
       final savedId = SettingsService.savedDeviceId;
-      if (savedId.isNotEmpty && _deviceState == DeviceConnectionState.disconnected) {
-         debugPrint('Auto-reconnect: Scanning for saved device...');
-         scanAndConnectToSavedDevice();
+      if (savedId.isNotEmpty &&
+          _deviceState == DeviceConnectionState.disconnected) {
+        debugPrint('Auto-reconnect: Scanning for saved device...');
+        scanAndConnectToSavedDevice();
       }
     });
   }
@@ -194,10 +198,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         if (success) {
           _batteryLevel = await _bleService.getBatteryLevel();
           _checkBatteryNotification();
-          
+
           // Check for SD card storage support
           await _checkStorageSupport();
-          
+
           notifyListeners();
           debugPrint('Auto-connected to saved device!');
         } else {
@@ -225,18 +229,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       // Save device for auto-reconnect
       SettingsService.savedDeviceId = device.device.remoteId.str;
       SettingsService.savedDeviceName = device.name;
-      
+
       _batteryLevel = await _bleService.getBatteryLevel();
       _checkBatteryNotification();
-      
+
       // Check for SD card storage support
       await _checkStorageSupport();
-      
+
       notifyListeners();
     }
     return success;
   }
-  
+
   /// Check if the device supports SD card storage
   Future<void> _checkStorageSupport() async {
     _hasStorageSupport = await _bleService.hasStorageSupport();
@@ -258,11 +262,11 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _notified20 = false;
     notifyListeners();
   }
-  
+
   /// Check battery level and show notification at 50% and 20%
   void _checkBatteryNotification() {
     if (_batteryLevel == null) return;
-    
+
     if (_batteryLevel! <= 20 && !_notified20) {
       _notified20 = true;
       if (SettingsService.notifyBatteryCritical) {
@@ -280,7 +284,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
       }
     }
-    
+
     // Reset flags when charged above thresholds
     if (_batteryLevel! > 50) {
       _notified50 = false;
@@ -289,13 +293,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       _notified20 = false;
     }
   }
-  
+
   Future<void> forgetDevice() async {
     await disconnectDevice();
     SettingsService.clearSavedDevice();
     notifyListeners();
   }
-
 
   // === Continuous Listening Methods ===
 
@@ -311,81 +314,97 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       throw Exception('No Omi device connected');
     }
     if (_isListening) return;
-    
+
     _isUsingPhoneMic = false;
     await _startTranscriptionServices(useOpusEncoding: true);
 
     // Start audio stream from Omi device
     await _bleService.startAudioStream();
-    
+
     // Initialize Opus decoder for Omi device (needed for local transcription and debug playback)
     _opusDecoder = OpusDecoderService();
     await _opusDecoder!.initialize();
-    
+
     _audioSubscription = _bleService.audioStream.listen(_handleOmiAudioData);
 
     _isListening = true;
     _startNewConversation();
     notifyListeners();
-    
-    debugPrint('Started continuous listening with Omi device (${SettingsService.transcriptionMode})');
+
+    debugPrint(
+      'Started continuous listening with Omi device (${SettingsService.transcriptionMode})',
+    );
   }
 
   /// Start continuous listening using iPhone microphone
   Future<void> startListeningWithPhoneMic() async {
     if (_isListening) return;
-    
+
     // Check mic permission
     final hasPermission = await _micService.hasPermission();
     if (!hasPermission) {
-      throw Exception('Microphone permission denied. Please enable in Settings.');
+      throw Exception(
+        'Microphone permission denied. Please enable in Settings.',
+      );
     }
-    
+
     _isUsingPhoneMic = true;
     await _startTranscriptionServices(useOpusEncoding: false);
 
     // Start phone mic recording
     await _micService.startRecording();
-    _audioSubscription = _micService.audioStream.listen(_handlePhoneMicAudioData);
+    _audioSubscription = _micService.audioStream.listen(
+      _handlePhoneMicAudioData,
+    );
 
     _isListening = true;
     _startNewConversation();
     notifyListeners();
-    
-    debugPrint('Started continuous listening with iPhone microphone (${SettingsService.transcriptionMode})');
+
+    debugPrint(
+      'Started continuous listening with iPhone microphone (${SettingsService.transcriptionMode})',
+    );
   }
 
   /// Initialize transcription services based on selected mode
-  Future<void> _startTranscriptionServices({required bool useOpusEncoding}) async {
+  Future<void> _startTranscriptionServices({
+    required bool useOpusEncoding,
+  }) async {
     final transcriptionMode = SettingsService.transcriptionMode;
-    
+
     // Validate API keys for cloud mode
     if (transcriptionMode == 'cloud' && !SettingsService.hasDeepgramKey) {
-      throw Exception('Please configure Deepgram API key in settings or switch to local transcription');
+      throw Exception(
+        'Please configure Deepgram API key in settings or switch to local transcription',
+      );
     }
 
     // Start transcription service based on selected mode
     switch (transcriptionMode) {
       case 'sherpa':
-        debugPrint('Starting with LOCAL Sherpa-ONNX transcription (with diarization)');
+        debugPrint(
+          'Starting with LOCAL Sherpa-ONNX transcription (with diarization)',
+        );
         _isLoadingModel = true;
         notifyListeners();
-        
+
         _sherpaService = SherpaService(
           onTranscript: _onTranscriptReceived,
           onError: (error) => debugPrint('Sherpa error: $error'),
         );
         await _sherpaService!.initialize();
         _sherpaService!.startProcessing();
-        
+
         _isLoadingModel = false;
         break;
-        
+
       case 'whisper':
-        debugPrint('Starting with LOCAL Whisper transcription (${SettingsService.whisperModelSize})');
+        debugPrint(
+          'Starting with LOCAL Whisper transcription (${SettingsService.whisperModelSize})',
+        );
         _isLoadingModel = true;
         notifyListeners();
-        
+
         _whisperService = WhisperService(
           onTranscript: _onTranscriptReceived,
           onError: (error) => debugPrint('Whisper error: $error'),
@@ -393,10 +412,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         );
         await _whisperService!.initialize();
         _whisperService!.startProcessing();
-        
+
         _isLoadingModel = false;
         break;
-        
+
       default: // 'cloud'
         debugPrint('Starting with CLOUD Deepgram transcription');
         _deepgramService = DeepgramService(
@@ -426,16 +445,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   void _onTranscriptReceived(List<TranscriptSegment> segments) {
     if (!_isListening) return;
-    
+
     // Check for silence to handle end-of-utterance
     // ...
-    
+
     // Accumulate for Hold-to-Ask
     if (_isHoldToAskActive) {
       for (var segment in segments) {
-         if (segment.text.isNotEmpty) {
-           _aiQueryTranscript += " ${segment.text}";
-         }
+        if (segment.text.isNotEmpty) {
+          _aiQueryTranscript += " ${segment.text}";
+        }
       }
     }
 
@@ -443,16 +462,16 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _liveSegments.addAll(segments);
     _lastTranscriptTime = DateTime.now();
     _hasActiveConversation = true;
-    
+
     // Reset silence timer
     _resetSilenceTimer();
-    
+
     notifyListeners();
   }
 
   void _resetSilenceTimer() {
     _cancelSilenceTimer();
-    
+
     _silenceTimer = Timer(silenceTimeout, () {
       if (_hasActiveConversation && _liveSegments.isNotEmpty) {
         debugPrint('Silence timeout reached - saving conversation');
@@ -487,19 +506,21 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         apiKey: SettingsService.openaiApiKey,
         model: SettingsService.openaiModel,
       );
-      
+
       try {
         final result = await _openaiService!.summarizeConversation(
           conversationToSave.transcript,
         );
         conversationToSave.title = result['title'] ?? 'Untitled';
         conversationToSave.summary = result['summary'] ?? '';
-        
+
         // Save extracted memories (with deduplication)
         final memories = result['memories'] as List<String>? ?? [];
         for (final memoryContent in memories) {
           if (memoryContent.trim().isNotEmpty) {
-            final hasSimilar = await DatabaseService.hasSimilarMemory(memoryContent);
+            final hasSimilar = await DatabaseService.hasSimilarMemory(
+              memoryContent,
+            );
             if (!hasSimilar) {
               final memory = Memory(
                 id: const Uuid().v4(),
@@ -516,7 +537,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           }
         }
         await loadMemories();
-        
+
         // Save extracted tasks (with deduplication)
         final tasks = result['tasks'] as List? ?? [];
         for (final taskData in tasks) {
@@ -530,7 +551,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
                   try {
                     dueDate = DateTime.parse(taskData['due_date'].toString());
                   } catch (e) {
-                    debugPrint('Failed to parse due date: ${taskData['due_date']}');
+                    debugPrint(
+                      'Failed to parse due date: ${taskData['due_date']}',
+                    );
                   }
                 }
                 final task = Task(
@@ -542,7 +565,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
                   sourceConversationId: conversationToSave.id,
                 );
                 await DatabaseService.saveTask(task);
-                
+
                 // Schedule notification if due date is set
                 if (task.dueDate != null) {
                   await NotificationService().scheduleTaskNotification(
@@ -551,7 +574,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
                     dueDate: task.dueDate!,
                   );
                 }
-                
+
                 debugPrint('Saved task: ${task.title} (due: ${task.dueDate})');
               } else {
                 debugPrint('Skipped duplicate task: $title');
@@ -562,16 +585,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         await loadTasks();
       } catch (e) {
         debugPrint('Failed to summarize: $e');
-        conversationToSave.title = 'Conversation ${conversationToSave.createdAt.toString().substring(0, 16)}';
+        conversationToSave.title =
+            'Conversation ${conversationToSave.createdAt.toString().substring(0, 16)}';
       }
     } else {
-      conversationToSave.title = 'Conversation ${conversationToSave.createdAt.toString().substring(0, 16)}';
+      conversationToSave.title =
+          'Conversation ${conversationToSave.createdAt.toString().substring(0, 16)}';
     }
 
     // Save to database
     await DatabaseService.saveConversation(conversationToSave);
     await loadConversations();
-    
+
     debugPrint('Saved conversation: ${conversationToSave.title}');
   }
 
@@ -602,7 +627,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     } else {
       await _bleService.stopAudioStream();
     }
-    
+
     // Clean up transcription services
     await _deepgramService?.disconnect();
     _deepgramService = null;
@@ -612,7 +637,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _whisperService?.stopProcessing();
     _whisperService?.dispose();
     _whisperService = null;
-    
+
     _opusDecoder?.dispose();
     _opusDecoder = null;
 
@@ -621,7 +646,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _currentConversation = null;
     _liveSegments = [];
     notifyListeners();
-    
+
     debugPrint('Stopped continuous listening');
   }
 
@@ -646,12 +671,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     }
 
     // Add user message
-    _chatMessages.add(ChatMessage(
-      id: const Uuid().v4(),
-      text: message,
-      isUser: true,
-      createdAt: DateTime.now(),
-    ));
+    _chatMessages.add(
+      ChatMessage(
+        id: const Uuid().v4(),
+        text: message,
+        isUser: true,
+        createdAt: DateTime.now(),
+      ),
+    );
     _isChatLoading = true;
     notifyListeners();
 
@@ -670,19 +697,23 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         conversationContext: context,
       );
 
-      _chatMessages.add(ChatMessage(
-        id: const Uuid().v4(),
-        text: response,
-        isUser: false,
-        createdAt: DateTime.now(),
-      ));
+      _chatMessages.add(
+        ChatMessage(
+          id: const Uuid().v4(),
+          text: response,
+          isUser: false,
+          createdAt: DateTime.now(),
+        ),
+      );
     } catch (e) {
-      _chatMessages.add(ChatMessage(
-        id: const Uuid().v4(),
-        text: 'Error: ${e.toString()}',
-        isUser: false,
-        createdAt: DateTime.now(),
-      ));
+      _chatMessages.add(
+        ChatMessage(
+          id: const Uuid().v4(),
+          text: 'Error: ${e.toString()}',
+          isUser: false,
+          createdAt: DateTime.now(),
+        ),
+      );
     }
 
     _isChatLoading = false;
@@ -691,7 +722,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   String _buildMemoryContext() {
     final buffer = StringBuffer();
-    
+
     // Include stored memories first
     if (_memories.isNotEmpty) {
       buffer.writeln('Important facts about the user:');
@@ -700,7 +731,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       buffer.writeln('');
     }
-    
+
     // Then add recent conversation summaries
     if (_conversations.isNotEmpty) {
       buffer.writeln('Recent conversation summaries:');
@@ -712,7 +743,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         if (conv.summary.isNotEmpty) buffer.writeln('Summary: ${conv.summary}');
       }
     }
-    
+
     return buffer.toString();
   }
 
@@ -751,14 +782,14 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> deleteTask(String id) async {
     // Cancel notification
     await NotificationService().cancelTaskNotification(id.hashCode);
-    
+
     await DatabaseService.deleteTask(id);
     await loadTasks();
   }
 
   Future<void> toggleTaskCompletion(String id, bool isCompleted) async {
     await DatabaseService.updateTaskCompletion(id, isCompleted);
-    
+
     // Manage notification
     if (isCompleted) {
       await NotificationService().cancelTaskNotification(id.hashCode);
@@ -776,7 +807,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
     }
-    
+
     await loadTasks();
   }
 
@@ -789,39 +820,40 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   /// Returns the transcript text
   Future<String> processLocalAudioFile(String filePath) async {
     debugPrint('Processing local audio file: $filePath');
-    
+
     // Read the audio data
     final audioData = await SdCardSyncService.readAudioFile(filePath);
     if (audioData == null || audioData.isEmpty) {
       throw Exception('Failed to read audio file');
     }
-    
+
     debugPrint('Read ${audioData.length} bytes of audio data');
-    
+
     // Determine codec from filename
     final isOpus = filePath.contains('opus');
-    
+
     // If Opus, decode to PCM first
     List<int> pcmData;
     if (isOpus) {
       final decoder = OpusDecoderService();
       await decoder.initialize();
-      
+
       // Decode Opus frames
       pcmData = [];
       int offset = 0;
       while (offset < audioData.length) {
         // Each frame is prefixed with 4-byte length
         if (offset + 4 > audioData.length) break;
-        
-        final frameLength = audioData[offset] |
-                           (audioData[offset + 1] << 8) |
-                           (audioData[offset + 2] << 16) |
-                           (audioData[offset + 3] << 24);
+
+        final frameLength =
+            audioData[offset] |
+            (audioData[offset + 1] << 8) |
+            (audioData[offset + 2] << 16) |
+            (audioData[offset + 3] << 24);
         offset += 4;
-        
+
         if (offset + frameLength > audioData.length) break;
-        
+
         final frame = audioData.sublist(offset, offset + frameLength);
         final decoded = decoder.decode(Uint8List.fromList(frame));
         if (decoded != null) {
@@ -829,33 +861,33 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         }
         offset += frameLength;
       }
-      
+
       decoder.dispose();
       debugPrint('Decoded ${pcmData.length} bytes of PCM audio');
     } else {
       pcmData = audioData.toList();
     }
-    
+
     // Transcribe using the configured transcription method
     final transcriptionMode = SettingsService.transcriptionMode;
     String transcript = '';
-    
+
     switch (transcriptionMode) {
       case 'whisper':
         debugPrint('Using Whisper for local transcription');
         transcript = await _transcribeWithWhisper(Uint8List.fromList(pcmData));
         break;
-        
+
       case 'sherpa':
         debugPrint('Using Sherpa for local transcription');
         transcript = await _transcribeWithSherpa(Uint8List.fromList(pcmData));
         break;
-        
+
       default: // cloud
         debugPrint('Using Deepgram for transcription');
         transcript = await _transcribeWithDeepgram(Uint8List.fromList(pcmData));
     }
-    
+
     // Save as a conversation if we got a transcript
     if (transcript.isNotEmpty) {
       final conversation = Conversation(
@@ -871,24 +903,28 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           ),
         ],
       );
-      
+
       // Try to summarize with OpenAI
       if (SettingsService.openaiApiKey.isNotEmpty) {
         _openaiService = OpenAIService(
           apiKey: SettingsService.openaiApiKey,
           model: SettingsService.openaiModel,
         );
-        
+
         try {
-          final result = await _openaiService!.summarizeConversation(transcript);
+          final result = await _openaiService!.summarizeConversation(
+            transcript,
+          );
           conversation.title = result['title'] ?? 'SD Card Recording';
           conversation.summary = result['summary'] ?? '';
-          
+
           // Extract memories
           final memories = result['memories'] as List<String>? ?? [];
           for (final memoryContent in memories) {
             if (memoryContent.trim().isNotEmpty) {
-              final hasSimilar = await DatabaseService.hasSimilarMemory(memoryContent);
+              final hasSimilar = await DatabaseService.hasSimilarMemory(
+                memoryContent,
+              );
               if (!hasSimilar) {
                 final memory = Memory(
                   id: const Uuid().v4(),
@@ -902,7 +938,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
             }
           }
           await loadMemories();
-          
+
           // Extract tasks
           final tasks = result['tasks'] as List? ?? [];
           for (final taskData in tasks) {
@@ -937,32 +973,32 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           debugPrint('Failed to summarize SD card recording: $e');
         }
       }
-      
+
       await DatabaseService.saveConversation(conversation);
       await loadConversations();
-      
-      debugPrint('Saved SD card recording as conversation: ${conversation.title}');
+
+      debugPrint(
+        'Saved SD card recording as conversation: ${conversation.title}',
+      );
     }
-    
+
     return transcript;
   }
-  
+
   Future<String> _transcribeWithWhisper(Uint8List pcmData) async {
-    final whisper = WhisperService(
-      modelSize: SettingsService.whisperModelSize,
-    );
-    
+    final whisper = WhisperService(modelSize: SettingsService.whisperModelSize);
+
     try {
       await whisper.initialize();
-      
+
       // Process all audio at once
       whisper.addAudio(pcmData);
-      
+
       // Wait for processing
       await Future.delayed(const Duration(seconds: 5));
-      
+
       whisper.stopProcessing();
-      
+
       // Get accumulated transcript from the service
       // Note: The current WhisperService uses callbacks, so we'd need to modify it
       // For now, return a placeholder
@@ -971,49 +1007,51 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       whisper.dispose();
     }
   }
-  
+
   Future<String> _transcribeWithSherpa(Uint8List pcmData) async {
     final sherpa = SherpaService();
-    
+
     try {
       await sherpa.initialize();
-      
+
       // Process all audio
       sherpa.addAudio(pcmData);
-      
+
       // Wait for processing
       await Future.delayed(const Duration(seconds: 5));
-      
+
       sherpa.stopProcessing();
-      
+
       return 'Transcription with Sherpa completed';
     } finally {
       sherpa.dispose();
     }
   }
-  
+
   Future<String> _transcribeWithDeepgram(Uint8List pcmData) async {
     if (!SettingsService.hasDeepgramKey) {
       throw Exception('Deepgram API key not configured');
     }
-    
+
     // For file transcription, we'd need to use Deepgram's file upload API
     // instead of the streaming API
     // This is a placeholder - the actual implementation would upload the file
-    
+
     // Save PCM to temporary WAV file
     final tempDir = await getTemporaryDirectory();
-    final wavFile = File('${tempDir.path}/sdcard_audio_${DateTime.now().millisecondsSinceEpoch}.wav');
-    
+    final wavFile = File(
+      '${tempDir.path}/sdcard_audio_${DateTime.now().millisecondsSinceEpoch}.wav',
+    );
+
     // Create WAV header
     final header = _buildWavHeader(pcmData.length);
     final wavData = BytesBuilder();
     wavData.add(header);
     wavData.add(pcmData);
     await wavFile.writeAsBytes(wavData.toBytes());
-    
+
     debugPrint('Saved temporary WAV file: ${wavFile.path}');
-    
+
     // TODO: Implement Deepgram file upload API
     // For now return placeholder
     return 'Audio file saved. Cloud transcription pending.';
@@ -1021,18 +1059,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> startAudioTest() async {
     if (_isTestingAudio) return;
-    
+
     // Ensure listening is active
     if (!_isListening) {
       if (SettingsService.savedDeviceId.isNotEmpty) {
-          await scanAndConnectToSavedDevice();
-          await Future.delayed(const Duration(seconds: 1)); // Wait for connection
+        await scanAndConnectToSavedDevice();
+        await Future.delayed(const Duration(seconds: 1)); // Wait for connection
       }
       if (_deviceState == DeviceConnectionState.connected) {
-          await startListening();
+        await startListening();
       } else {
-          notifyListeners(); // Error?
-          return;
+        notifyListeners(); // Error?
+        return;
       }
     }
 
@@ -1043,10 +1081,12 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     // Record for 3 seconds
     Future.delayed(const Duration(seconds: 3), () async {
-      debugPrint('Audio Test Recording finished. Buffer size: ${_testAudioBuffer.length}');
+      debugPrint(
+        'Audio Test Recording finished. Buffer size: ${_testAudioBuffer.length}',
+      );
       _isTestingAudio = false;
       notifyListeners();
-      
+
       if (_testAudioBuffer.isNotEmpty) {
         await _playBackTestAudio();
       }
@@ -1057,17 +1097,17 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/test_audio.wav');
-      
+
       // Create WAV header
       final pcmData = Uint8List.fromList(_testAudioBuffer);
       final header = _buildWavHeader(pcmData.length);
       final wavData = BytesBuilder();
       wavData.add(header);
       wavData.add(pcmData);
-      
+
       await tempFile.writeAsBytes(wavData.toBytes());
       debugPrint('Playing back audio test file: ${tempFile.path}');
-      
+
       await _audioPlayer.play(DeviceFileSource(tempFile.path));
     } catch (e) {
       debugPrint('Audio playback error: $e');
@@ -1081,7 +1121,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     final fileSize = dataSize + 36;
     final byteRate = sampleRate * channels * bitsPerSample ~/ 8;
     final blockAlign = channels * bitsPerSample ~/ 8;
-    
+
     final header = BytesBuilder();
     header.add('RIFF'.codeUnits);
     header.add(_int32ToBytes(fileSize));
@@ -1099,10 +1139,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     return header.toBytes();
   }
 
-  Uint8List _int32ToBytes(int value) => Uint8List(4)..buffer.asByteData().setInt32(0, value, Endian.little);
-  Uint8List _int16ToBytes(int value) => Uint8List(2)..buffer.asByteData().setInt16(0, value, Endian.little);
+  Uint8List _int32ToBytes(int value) =>
+      Uint8List(4)..buffer.asByteData().setInt32(0, value, Endian.little);
+  Uint8List _int16ToBytes(int value) =>
+      Uint8List(2)..buffer.asByteData().setInt16(0, value, Endian.little);
 
-  Timer? _doubleTapTimer; // Keep mainly for debouncing if needed, but logic is now state-driven
+  Timer?
+  _doubleTapTimer; // Keep mainly for debouncing if needed, but logic is now state-driven
 
   // Audio Buffering for Hold-to-Ask
   List<int> _voiceCommandBuffer = [];
@@ -1111,185 +1154,218 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void _handleButtonPress(List<int> data) async {
     if (data.isEmpty) return;
     debugPrint("Raw Button Data (length ${data.length}): $data");
-    
+
     if (data.length < 4) {
-       debugPrint("Button Data too short, ignoring.");
-       return;
+      debugPrint("Button Data too short, ignoring.");
+      return;
     }
-    
+
+    // Debounce - prevent multiple button events from being processed too quickly
+    if (_isProcessingButtonEvent) {
+      debugPrint("Button event blocked - still processing previous event");
+      return;
+    }
+    _isProcessingButtonEvent = true;
+
     // Parse button state exactly as Omi reference does
     // Little Endian Uint32: [2, 0, 0, 0] -> 2
-    final buttonState = ByteData.view(Uint8List.fromList(data.sublist(0, 4).reversed.toList()).buffer).getUint32(0);
+    final buttonState = ByteData.view(
+      Uint8List.fromList(data.sublist(0, 4).reversed.toList()).buffer,
+    ).getUint32(0);
     debugPrint("Button State Parsed: $buttonState");
 
     // STATE 2: Double Tap (End/Save)
     if (buttonState == 2) {
-       debugPrint("Double Tap Detected (State 2): Saving Conversation");
-       HapticFeedback.heavyImpact(); // Confirm action (Phone)
-       _bleService.triggerHaptic(3); // Confirm action (Omi - Long 500ms)
-       if (_liveSegments.isEmpty) {
-          NotificationService().showNotification("Double Tap", "No active conversation to save.");
-       } else {
-          NotificationService().showNotification("Double Tap", "Saving conversation...");
-          await manualSaveConversation();
-       }
-       return;
+      debugPrint("Double Tap Detected (State 2): Saving Conversation");
+      HapticFeedback.heavyImpact(); // Confirm action (Phone)
+      _bleService.triggerHaptic(3); // Confirm action (Omi - Long 500ms)
+      if (_liveSegments.isEmpty) {
+        NotificationService().showNotification(
+          "Double Tap",
+          "No active conversation to save.",
+        );
+      } else {
+        NotificationService().showNotification(
+          "Double Tap",
+          "Saving conversation...",
+        );
+        await manualSaveConversation();
+      }
+      _isProcessingButtonEvent = false;
+      return;
     }
 
-    // STATE 3: Long Press Start (Hold to Ask)
-    if (buttonState == 3) {
-      debugPrint("Long Press Started (State 3): Listening for AI Query");
-      HapticFeedback.mediumImpact(); // Confirm start (Phone)
-      _bleService.triggerHaptic(2); // Confirm start (Omi - Medium 50ms)
-      _buttonPressStartTime = DateTime.now();
-      _isHoldToAskActive = true; 
-      _aiQueryTranscript = ''; 
-      
-      // Start buffering audio specifically for this command
-      _isCollectingVoiceCommand = true;
-      _voiceCommandBuffer = [];
-      
-      // Ensure audio stream is active immediately
-      // We don't rely only on "startListening" which might be slow.
-      // We manually start the stream if not already running.
-      if (!_isListening) {
-         await _bleService.startAudioStream();
-         // Manually subscribe if not already handling in startListening
-         if (_audioSubscription == null) {
-            _audioSubscription = _bleService.audioStream.listen(_handleOmiAudioData);
-         }
-         // Note: We don't set _isListening = true here to avoid full "Live Conv" logic yet?
-         // Actually we should connect Deepgram to process this buffer LIVE if possible.
-         // Let's connect Deepgram too.
-         startListening(); 
+    // STATE 1: Short Press (Toggle - first click starts, second click ends)
+    if (buttonState == 1) {
+      if (_isHoldToAskActive) {
+        // Second click - end AI query and process
+        debugPrint("Short Press (State 1): Ending AI Query");
+        HapticFeedback.lightImpact(); // Confirm end (Phone)
+        _bleService.triggerHaptic(1); // Confirm end (Omi - Short 20ms)
+
+        // Wait to capture trailing audio
+        await Future.delayed(const Duration(milliseconds: 1500));
+
+        _isHoldToAskActive = false;
+        _isCollectingVoiceCommand = false;
+        notifyListeners();
+
+        debugPrint("Final Query Transcript: '$_aiQueryTranscript'");
+
+        _isAiQueryProcessing = true;
+
+        await _processAiQuery();
+
+        _isAiQueryProcessing = false;
+        _buttonPressStartTime = null;
+        _voiceCommandBuffer = [];
+      } else {
+        // First click - start AI query
+        debugPrint("Short Press (State 1): Starting AI Query");
+        HapticFeedback.mediumImpact(); // Confirm start (Phone)
+        _bleService.triggerHaptic(2); // Confirm start (Omi - Medium 50ms)
+        _buttonPressStartTime = DateTime.now();
+        _isHoldToAskActive = true;
+        _aiQueryTranscript = '';
+
+        _isCollectingVoiceCommand = true;
+        _voiceCommandBuffer = [];
+
+        if (!_isListening) {
+          await _bleService.startAudioStream();
+          if (_audioSubscription == null) {
+            _audioSubscription = _bleService.audioStream.listen(
+              _handleOmiAudioData,
+            );
+          }
+          startListening();
+        }
+
+        notifyListeners();
       }
-      
-      notifyListeners();
+      _isProcessingButtonEvent = false;
+      return;
+    }
+
+    // STATE 4: Short Press End (Not used with toggle - ignore)
+    if (buttonState == 4) {
+      debugPrint("Short Press End (State 4) - Ignored (using toggle)");
+      _isProcessingButtonEvent = false;
+      return;
+    }
+
+    // STATE 3: Long Press Start (Disabled - now turns off device in new firmware)
+    if (buttonState == 3) {
+      debugPrint("Long Press Detected (State 3) - Disabled for AI Query");
+      _isProcessingButtonEvent = false;
       return;
     }
 
     // STATE 5: Long Press End
     if (buttonState == 5) {
-      debugPrint("Long Press Ended (State 5): Processing AI Query");
-      HapticFeedback.lightImpact(); // Confirm release (Phone)
-      _bleService.triggerHaptic(1); // Confirm release (Omi - Short 20ms)
-      
-      // Wait to capture trailing audio
-      await Future.delayed(const Duration(milliseconds: 1500));
-      
-      _isHoldToAskActive = false; // Controls overlay
-      _isCollectingVoiceCommand = false; // Stops buffering for command
-      notifyListeners();
-
-      debugPrint("Final Query Transcript: '$_aiQueryTranscript'");
-      
-      // Stop listening to active conversation temporarily (PAUSE)
-      // Do NOT call stopListening() as it ends the conversation.
-      _isAiQueryProcessing = true;
-      
-      await _processAiQuery();
-      
-      // Resume listening to active conversation
-      _isAiQueryProcessing = false;
-      _buttonPressStartTime = null;
-      _voiceCommandBuffer = [];
+      debugPrint("Long Press Ended (State 5) - Ignoring (long press disabled)");
+      _isProcessingButtonEvent = false;
       return;
     }
   }
 
   // Audio Data Handler for Omi device (Opus encoded)
   void _handleOmiAudioData(Uint8List audioData) {
-        // Omi device audio has a 3-byte header that needs to be trimmed
-        if (audioData.length <= 3) return;
-        final trimmedAudio = audioData.sublist(3);
-        
-        // BUFFER for Voice Command if active
-        if (_isCollectingVoiceCommand) {
-           _voiceCommandBuffer.addAll(trimmedAudio);
-        }
-        
-        // Decode Opus to PCM (needed for Sherpa and Debug Playback)
-        final pcmData = _opusDecoder?.decode(trimmedAudio);
+    // Omi device audio has a 3-byte header that needs to be trimmed
+    if (audioData.length <= 3) return;
+    final trimmedAudio = audioData.sublist(3);
 
-        if (_isTestingAudio) {
-           if (pcmData != null) _testAudioBuffer.addAll(pcmData);
-        } else {
-           // PAUSE: If AI is processing a query, ignore incoming audio for the main conversation
-           if (_isAiQueryProcessing) return;
+    // BUFFER for Voice Command if active
+    if (_isCollectingVoiceCommand) {
+      _voiceCommandBuffer.addAll(trimmedAudio);
+    }
 
-           // Route to active transcription service
-           final transcriptionMode = SettingsService.transcriptionMode;
-           switch (transcriptionMode) {
-             case 'sherpa':
-               if (pcmData != null) _sherpaService?.addAudio(pcmData);
-               break;
-             case 'whisper':
-               if (pcmData != null) _whisperService?.addAudio(pcmData);
-               break;
-             default: // cloud
-               // Deepgram expects Opus when encoding='opus'
-               if (_deepgramService != null) {
-                  _deepgramService?.sendAudio(trimmedAudio);
-               }
-           }
-        }
+    // Decode Opus to PCM (needed for Sherpa and Debug Playback)
+    final pcmData = _opusDecoder?.decode(trimmedAudio);
+
+    if (_isTestingAudio) {
+      if (pcmData != null) _testAudioBuffer.addAll(pcmData);
+    } else {
+      // PAUSE: If AI is processing a query, ignore incoming audio for the main conversation
+      if (_isAiQueryProcessing) return;
+
+      // Route to active transcription service
+      final transcriptionMode = SettingsService.transcriptionMode;
+      switch (transcriptionMode) {
+        case 'sherpa':
+          if (pcmData != null) _sherpaService?.addAudio(pcmData);
+          break;
+        case 'whisper':
+          if (pcmData != null) _whisperService?.addAudio(pcmData);
+          break;
+        default: // cloud
+          // Deepgram expects Opus when encoding='opus'
+          if (_deepgramService != null) {
+            _deepgramService?.sendAudio(trimmedAudio);
+          }
+      }
+    }
   }
 
   // Audio Data Handler for phone microphone (raw PCM16)
   void _handlePhoneMicAudioData(Uint8List audioData) {
-        if (audioData.isEmpty) return;
-        
-        // Create a properly aligned copy of the audio data
-        // This is needed because Int16List.view requires proper buffer alignment
-        final alignedData = Uint8List.fromList(audioData);
-        
-        // Route to active transcription service
-        final transcriptionMode = SettingsService.transcriptionMode;
-        switch (transcriptionMode) {
-          case 'sherpa':
-            _sherpaService?.addAudio(alignedData);
-            break;
-          case 'whisper':
-            _whisperService?.addAudio(alignedData);
-            break;
-          default: // cloud
-            // Deepgram expects linear16 when encoding='linear16'
-            if (_deepgramService != null) {
-               _deepgramService?.sendAudio(alignedData);
-            }
+    if (audioData.isEmpty) return;
+
+    // Create a properly aligned copy of the audio data
+    // This is needed because Int16List.view requires proper buffer alignment
+    final alignedData = Uint8List.fromList(audioData);
+
+    // Route to active transcription service
+    final transcriptionMode = SettingsService.transcriptionMode;
+    switch (transcriptionMode) {
+      case 'sherpa':
+        _sherpaService?.addAudio(alignedData);
+        break;
+      case 'whisper':
+        _whisperService?.addAudio(alignedData);
+        break;
+      default: // cloud
+        // Deepgram expects linear16 when encoding='linear16'
+        if (_deepgramService != null) {
+          _deepgramService?.sendAudio(alignedData);
         }
+    }
   }
 
   Future<void> _processAiQuery() async {
     final query = _aiQueryTranscript.trim();
     if (query.isEmpty) {
-       NotificationService().showAiResponse("I couldn't hear that. Please try again.");
-       return;
+      NotificationService().showAiResponse(
+        "I couldn't hear that. Please try again.",
+      );
+      return;
     }
-    
+
     // Notify user we are processing
     if (SettingsService.notifyProcessing) {
       NotificationService().showAiResponse("Processing: $query");
     }
-    
+
     _openaiService = OpenAIService(
       apiKey: SettingsService.openaiApiKey,
       model: SettingsService.openaiModel,
     );
-    
+
     try {
       // Chat
-    final response = await _openaiService!.chat(
-      userMessage: query,
-      conversationContext: "You are Omi, a helpful AI wearable assistant. Your responses are on notifications, so they MUST be extremely concise. Aim for just the answer. Navigate straight to the point. No fluff.",
-    );
-      
+      final response = await _openaiService!.chat(
+        userMessage: query,
+        conversationContext:
+            "You are Omi, a helpful AI wearable assistant. Your responses are on notifications, so they MUST be extremely concise. Aim for just the answer. Navigate straight to the point. No fluff.",
+      );
+
       debugPrint('AI Response: $response');
       NotificationService().showAiResponse(response);
-      
     } catch (e) {
       debugPrint("AI Query failed: $e");
-      NotificationService().showAiResponse("Failed to process question. Please try again.");
+      NotificationService().showAiResponse(
+        "Failed to process question. Please try again.",
+      );
     }
   }
 
@@ -1297,7 +1373,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
     debugPrint('App lifecycle state: $state');
-    
+
     if (state == AppLifecycleState.resumed) {
       NotificationService().resetGlobalBadge();
     }
