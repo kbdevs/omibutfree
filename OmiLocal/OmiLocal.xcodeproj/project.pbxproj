@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -43,7 +43,7 @@
 		940280CD91BDBB91188F1025 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9C566A2EBB5A827A22C64F45 /* SdCardSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SdCardSyncView.swift; sourceTree = "<group>"; };
 		AA94998E2315A4F89C7637F1 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
-		AD9EAC0AB3288CEED0AE38A7 /* OmiLocal.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OmiLocal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AD9EAC0AB3288CEED0AE38A7 /* OmiLocal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OmiLocal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E420CD2B7B7CC8998503B485 /* DeviceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -175,9 +175,8 @@
 			mainGroup = E530F7698D990D9025B33B93;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				C33ED122AD47C1F297AB31CA /* XCRemoteSwiftPackageReference "SQLite.swift" */,
+				C33ED122AD47C1F297AB31CA /* XCRemoteSwiftPackageReference "SQLite" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -229,6 +228,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 7P5XQ4V7S5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
@@ -252,6 +252,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 7P5XQ4V7S5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Omi needs Bluetooth to connect to your wearable device";
@@ -415,7 +416,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		C33ED122AD47C1F297AB31CA /* XCRemoteSwiftPackageReference "SQLite.swift" */ = {
+		C33ED122AD47C1F297AB31CA /* XCRemoteSwiftPackageReference "SQLite" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/stephencelis/SQLite.swift";
 			requirement = {
@@ -428,7 +429,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		3C039CA53543E8CBD77BDF08 /* SQLite */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C33ED122AD47C1F297AB31CA /* XCRemoteSwiftPackageReference "SQLite.swift" */;
+			package = C33ED122AD47C1F297AB31CA /* XCRemoteSwiftPackageReference "SQLite" */;
 			productName = SQLite;
 		};
 /* End XCSwiftPackageProductDependency section */

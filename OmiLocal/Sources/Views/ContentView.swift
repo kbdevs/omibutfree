@@ -436,6 +436,10 @@ struct MemoriesView: View {
     @State private var searchText = ""
     @State private var showAddMemory = false
     @State private var newMemoryText = ""
+    @State private var editingMemory: Memory?
+    @State private var editMemoryText = ""
+    @State private var deletingMemory: Memory?
+    @State private var showDeleteAlert = false
     
     var filteredMemories: [Memory] {
         if searchText.isEmpty {
@@ -467,6 +471,28 @@ struct MemoriesView: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deletingMemory = memory
+                                showDeleteAlert = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button {
+                                editingMemory = memory
+                                editMemoryText = memory.content
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                deletingMemory = memory
+                                showDeleteAlert = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                     .searchable(text: $searchText, prompt: "Search memories")
                 }
@@ -492,6 +518,40 @@ struct MemoriesView: View {
                         newMemoryText = ""
                     }
                 }
+            }
+            .alert("Edit Memory", isPresented: .init(
+                get: { editingMemory != nil },
+                set: { if !$0 { editingMemory = nil } }
+            )) {
+                TextField("Memory content", text: $editMemoryText)
+                Button("Cancel", role: .cancel) {
+                    editingMemory = nil
+                    editMemoryText = ""
+                }
+                Button("Save") {
+                    if let memory = editingMemory {
+                        Task {
+                            await appState.updateMemory(memory.id, content: editMemoryText)
+                            editingMemory = nil
+                            editMemoryText = ""
+                        }
+                    }
+                }
+            }
+            .alert("Delete Memory", isPresented: $showDeleteAlert) {
+                Button("Cancel", role: .cancel) {
+                    deletingMemory = nil
+                }
+                Button("Delete", role: .destructive) {
+                    if let memory = deletingMemory {
+                        Task {
+                            await appState.deleteMemory(memory.id)
+                            deletingMemory = nil
+                        }
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to delete this memory?")
             }
         }
     }
