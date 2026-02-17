@@ -151,8 +151,13 @@ class AppState: ObservableObject {
         
         Task {
             for await devices in bleService.scanForDevices() {
+                let omiDevices = devices.filter { $0.name.lowercased().contains("omi") }
                 await MainActor.run {
-                    self.scannedDevices = devices
+                    if !omiDevices.isEmpty {
+                        self.scannedDevices = omiDevices
+                    } else if self.scannedDevices.isEmpty {
+                        self.scannedDevices = devices
+                    }
                 }
             }
             await MainActor.run {
@@ -166,9 +171,10 @@ class AppState: ObservableObject {
         if success {
             settingsService.savedDeviceId = device.id
             settingsService.savedDeviceName = device.name
-            await MainActor.run {
-                self.batteryLevel = self.bleService.batteryLevel
-            }
+            
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            
+            batteryLevel = await bleService.getBatteryLevel()
             await checkStorageSupport()
         }
         return success
@@ -468,6 +474,14 @@ class AppState: ObservableObject {
         }
         
         await databaseService.saveConversation(conversation)
+        
+        if SettingsService.shared.notifyProcessing {
+            notificationService.showNotification(
+                title: "Conversation Saved",
+                body: conversation.title.isEmpty ? "New conversation saved" : conversation.title
+            )
+        }
+        
         await loadData()
     }
     

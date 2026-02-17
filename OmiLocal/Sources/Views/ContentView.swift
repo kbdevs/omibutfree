@@ -10,7 +10,10 @@ struct ContentView: View {
                 Color.black.opacity(0.7)
                     .ignoresSafeArea()
                     .onTapGesture {
-                        // End AI query
+                        appState.isHoldToAskActive = false
+                        Task {
+                            await appState.stopListening()
+                        }
                     }
                 
                 VStack(spacing: 24) {
@@ -23,13 +26,15 @@ struct ContentView: View {
                             .font(.system(size: 36))
                             .foregroundColor(.white)
                     }
+                    .scaleEffect(appState.isAiQueryProcessing ? 1.2 : 1.0)
+                    .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: appState.isAiQueryProcessing)
                     
-                    Text("Listening...")
+                    Text(appState.isAiQueryProcessing ? "Processing..." : "Listening...")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                     
-                    Text("Click again to finish")
+                    Text("Tap to cancel")
                         .foregroundColor(.white.opacity(0.7))
                 }
             }

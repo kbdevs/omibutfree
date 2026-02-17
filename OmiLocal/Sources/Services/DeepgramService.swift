@@ -94,7 +94,7 @@ class DeepgramService: NSObject {
             return
         }
         
-        let isFinal = (json["channel"] as? [String: Any])?["alternatives"] as? [[String: Any]] != nil
+        let isFinal = (json["is_final"] as? Bool) ?? true
         
         if isFinal {
             let segment = TranscriptSegment(
