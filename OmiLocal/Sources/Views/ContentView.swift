@@ -654,7 +654,7 @@ struct SettingsView: View {
                         SecureField("API Key", text: $deepgramKey)
                             .textFieldStyle(.roundedBorder)
                             .autocapitalization(.none)
-                            .onChange(of: deepgramKey) { _, newValue in
+                            .onChange(of: deepgramKey) { newValue in
                                 SettingsService.shared.deepgramApiKey = newValue
                             }
                     }
@@ -665,7 +665,7 @@ struct SettingsView: View {
                         SecureField("API Key", text: $openaiKey)
                             .textFieldStyle(.roundedBorder)
                             .autocapitalization(.none)
-                            .onChange(of: openaiKey) { _, newValue in
+                            .onChange(of: openaiKey) { newValue in
                                 SettingsService.shared.openaiApiKey = newValue
                             }
                     }
@@ -677,7 +677,7 @@ struct SettingsView: View {
                         Text("Local (Whisper)").tag("whisper")
                         Text("Local (Sherpa)").tag("sherpa")
                     }
-                    .onChange(of: transcriptionMode) { _, newValue in
+                    .onChange(of: transcriptionMode) { newValue in
                         SettingsService.shared.transcriptionMode = newValue
                     }
                 }
@@ -691,26 +691,26 @@ struct SettingsView: View {
                         Text("GPT-4o Mini").tag("gpt-4o-mini")
                         Text("GPT-3.5 Turbo").tag("gpt-3.5-turbo")
                     }
-                    .onChange(of: selectedModel) { _, newValue in
+                    .onChange(of: selectedModel) { newValue in
                         SettingsService.shared.openaiModel = newValue
                     }
                 }
                 
                 Section("Notifications") {
                     Toggle("Battery Low (50%)", isOn: $notifyBatteryLow)
-                        .onChange(of: notifyBatteryLow) { _, newValue in
+                        .onChange(of: notifyBatteryLow) { newValue in
                             SettingsService.shared.notifyBatteryLow = newValue
                         }
                     Toggle("Battery Critical (20%)", isOn: $notifyBatteryCritical)
-                        .onChange(of: notifyBatteryCritical) { _, newValue in
+                        .onChange(of: notifyBatteryCritical) { newValue in
                             SettingsService.shared.notifyBatteryCritical = newValue
                         }
                     Toggle("Task Reminders", isOn: $notifyTaskReminders)
-                        .onChange(of: notifyTaskReminders) { _, newValue in
+                        .onChange(of: notifyTaskReminders) { newValue in
                             SettingsService.shared.notifyTaskReminders = newValue
                         }
                     Toggle("Processing Alerts", isOn: $notifyProcessing)
-                        .onChange(of: notifyProcessing) { _, newValue in
+                        .onChange(of: notifyProcessing) { newValue in
                             SettingsService.shared.notifyProcessing = newValue
                         }
                 }

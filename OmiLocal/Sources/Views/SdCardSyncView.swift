@@ -108,7 +108,9 @@ struct SdCardSyncView: View {
         statusMessage = "Sync complete!"
         
         await MainActor.run {
-            appState.loadConversations()
+            Task {
+                await appState.loadData()
+            }
         }
         
         try? await Task.sleep(nanoseconds: 2_000_000_000)

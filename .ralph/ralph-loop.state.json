@@ -1,13 +1,13 @@
 {
   "active": true,
-  "iteration": 4,
-  "minIterations": 1,
+  "iteration": 1,
+  "minIterations": 4,
   "maxIterations": 10,
   "completionPromise": "COMPLETE",
   "tasksMode": false,
   "taskPromise": "READY_FOR_NEXT_TASK",
   "prompt": "rebuild the entire app in swift/xcode, all functionality and features, no bugs, do it in OmiLocal",
-  "startedAt": "2026-02-17T05:12:11.833Z",
+  "startedAt": "2026-02-17T15:43:40.846Z",
   "model": "",
   "agent": "opencode"
 }

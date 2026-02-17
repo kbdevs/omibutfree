@@ -131,7 +131,7 @@ class AppState: ObservableObject {
         }
     }
     
-    private func loadData() async {
+    func loadData() async {
         let conversationsData = await databaseService.getConversations()
         let memoriesData = await databaseService.getMemories()
         let tasksData = await databaseService.getTasks()
@@ -312,7 +312,7 @@ class AppState: ObservableObject {
             
             if isTestingAudio, let decoded = opusDecoder?.decode(trimmedData) {
                 for sample in decoded {
-                    testAudioBuffer.append(sample)
+                    testAudioBuffer.append(Int(sample))
                 }
             }
             

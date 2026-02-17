@@ -10,13 +10,17 @@
 		0A80E54A3E22E75B78E3750F /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8769BB1AD1E86C8C128C0585 /* OpenAIService.swift */; };
 		28F781D15724412818C9F8D6 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C5632252359F8D305DBCD7 /* AppState.swift */; };
 		3480A136077D1ABC8FF94299 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B41BB24C88B1D77D8256934 /* DatabaseService.swift */; };
+		5736303305BFC4777EB8515F /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A3F867319567AE29057106 /* StatsView.swift */; };
 		5B0F83167790E9FB81C5044D /* MicrophoneService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA94998E2315A4F89C7637F1 /* MicrophoneService.swift */; };
 		5CDC00CDCA4124B7687D6ACF /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C43FE3EFC7CDD0607BEBB70 /* Models.swift */; };
 		62532718EC496CCE96E1C411 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6391C39C48D6AB6AF593CD14 /* NotificationService.swift */; };
+		73FC68B14887034B7D6245CC /* SdCardSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C566A2EBB5A827A22C64F45 /* SdCardSyncView.swift */; };
 		7CA90EE8D7AB73F4BC92821F /* BLEService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93413BFA601DA7AF469CD796 /* BLEService.swift */; };
 		90BAD984D1081F1A684DDDED /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 3C039CA53543E8CBD77BDF08 /* SQLite */; };
+		95A3285A35A16804FDE20BA3 /* DeviceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E420CD2B7B7CC8998503B485 /* DeviceSettingsView.swift */; };
 		A620205A2BA5716BC0DB51F6 /* DeepgramService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003236BC4656BBD41EA2F260 /* DeepgramService.swift */; };
 		B9C54174413F6F3799FFDCD6 /* SettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A6BD861E4FB7C33942B9BE /* SettingsService.swift */; };
+		BAC5A9419D3353699AE43B4D /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FDF80F754971FA8EAEC1920 /* ChatView.swift */; };
 		C0C97A20174849A23F0A0A20 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */; };
 		C80658EE49E62357428A390E /* OpusDecoderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 567DA30EF0E375FFE06686A1 /* OpusDecoderService.swift */; };
 		C93F48A4EAB0DEFD25F8EAC1 /* OmiLocalApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BC86E288254D4521399AD41 /* OmiLocalApp.swift */; };
@@ -32,12 +36,16 @@
 		5B41BB24C88B1D77D8256934 /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
 		6391C39C48D6AB6AF593CD14 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		8769BB1AD1E86C8C128C0585 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
+		87A3F867319567AE29057106 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		8BC86E288254D4521399AD41 /* OmiLocalApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmiLocalApp.swift; sourceTree = "<group>"; };
+		8FDF80F754971FA8EAEC1920 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		93413BFA601DA7AF469CD796 /* BLEService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEService.swift; sourceTree = "<group>"; };
 		940280CD91BDBB91188F1025 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9C566A2EBB5A827A22C64F45 /* SdCardSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SdCardSyncView.swift; sourceTree = "<group>"; };
 		AA94998E2315A4F89C7637F1 /* MicrophoneService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneService.swift; sourceTree = "<group>"; };
 		AD9EAC0AB3288CEED0AE38A7 /* OmiLocal.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OmiLocal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E420CD2B7B7CC8998503B485 /* DeviceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,7 +95,11 @@
 		C2709768F322F47DE1C7391A /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				8FDF80F754971FA8EAEC1920 /* ChatView.swift */,
 				D40FCA0CAECB05B3ACBC8B1D /* ContentView.swift */,
+				E420CD2B7B7CC8998503B485 /* DeviceSettingsView.swift */,
+				9C566A2EBB5A827A22C64F45 /* SdCardSyncView.swift */,
+				87A3F867319567AE29057106 /* StatsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -192,16 +204,20 @@
 			files = (
 				28F781D15724412818C9F8D6 /* AppState.swift in Sources */,
 				7CA90EE8D7AB73F4BC92821F /* BLEService.swift in Sources */,
+				BAC5A9419D3353699AE43B4D /* ChatView.swift in Sources */,
 				C0C97A20174849A23F0A0A20 /* ContentView.swift in Sources */,
 				3480A136077D1ABC8FF94299 /* DatabaseService.swift in Sources */,
 				A620205A2BA5716BC0DB51F6 /* DeepgramService.swift in Sources */,
+				95A3285A35A16804FDE20BA3 /* DeviceSettingsView.swift in Sources */,
 				5B0F83167790E9FB81C5044D /* MicrophoneService.swift in Sources */,
 				5CDC00CDCA4124B7687D6ACF /* Models.swift in Sources */,
 				62532718EC496CCE96E1C411 /* NotificationService.swift in Sources */,
 				C93F48A4EAB0DEFD25F8EAC1 /* OmiLocalApp.swift in Sources */,
 				0A80E54A3E22E75B78E3750F /* OpenAIService.swift in Sources */,
 				C80658EE49E62357428A390E /* OpusDecoderService.swift in Sources */,
+				73FC68B14887034B7D6245CC /* SdCardSyncView.swift in Sources */,
 				B9C54174413F6F3799FFDCD6 /* SettingsService.swift in Sources */,
+				5736303305BFC4777EB8515F /* StatsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
