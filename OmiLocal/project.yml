@@ -5,6 +5,11 @@ options:
     iOS: "16.0"
   xcodeVersion: "15.0"
 
+packages:
+  SQLite.swift:
+    url: https://github.com/stephencelis/SQLite.swift
+    from: "0.15.0"
+
 settings:
   base:
     SWIFT_VERSION: "5.9"
@@ -17,6 +22,9 @@ targets:
     sources:
       - path: Sources
         type: group
+    dependencies:
+      - package: SQLite.swift
+        product: SQLite
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.omi.local

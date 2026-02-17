@@ -59,11 +59,17 @@ struct ContentView: View {
                     }
                     .tag(3)
                 
-                SettingsView()
+                ChatView()
                     .tabItem {
-                        Label("Settings", systemImage: selectedTab == 4 ? "gearshape.fill" : "gearshape")
+                        Label("Chat", systemImage: selectedTab == 4 ? "bubble.left.fill" : "bubble.left")
                     }
                     .tag(4)
+                
+                SettingsView()
+                    .tabItem {
+                        Label("Settings", systemImage: selectedTab == 5 ? "gearshape.fill" : "gearshape")
+                    }
+                    .tag(5)
             }
             .tint(Color.purple)
         }
@@ -588,6 +594,13 @@ struct SettingsView: View {
     @State private var showOpenAIKey = false
     @State private var transcriptionMode = SettingsService.shared.transcriptionMode
     @State private var selectedModel = SettingsService.shared.openaiModel
+    @State private var notifyBatteryLow = SettingsService.shared.notifyBatteryLow
+    @State private var notifyBatteryCritical = SettingsService.shared.notifyBatteryCritical
+    @State private var notifyTaskReminders = SettingsService.shared.notifyTaskReminders
+    @State private var notifyProcessing = SettingsService.shared.notifyProcessing
+    @State private var iCloudBackup = false
+    @State private var showExportSheet = false
+    @State private var exportData: String = ""
     
     var body: some View {
         NavigationStack {
@@ -606,10 +619,8 @@ struct SettingsView: View {
                             }
                             Spacer()
                             if appState.deviceState == .connected {
-                                Button("Disconnect") {
-                                    Task {
-                                        await appState.disconnectDevice()
-                                    }
+                                NavigationLink(destination: DeviceSettingsView()) {
+                                    Text("Configure")
                                 }
                             } else {
                                 Button("Connect") {
@@ -619,6 +630,8 @@ struct SettingsView: View {
                                         }
                                     }
                                 }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.purple)
                             }
                         }
                         
@@ -641,7 +654,7 @@ struct SettingsView: View {
                         SecureField("API Key", text: $deepgramKey)
                             .textFieldStyle(.roundedBorder)
                             .autocapitalization(.none)
-                            .onChange(of: deepgramKey) { newValue in
+                            .onChange(of: deepgramKey) { _, newValue in
                                 SettingsService.shared.deepgramApiKey = newValue
                             }
                     }
@@ -652,7 +665,7 @@ struct SettingsView: View {
                         SecureField("API Key", text: $openaiKey)
                             .textFieldStyle(.roundedBorder)
                             .autocapitalization(.none)
-                            .onChange(of: openaiKey) { newValue in
+                            .onChange(of: openaiKey) { _, newValue in
                                 SettingsService.shared.openaiApiKey = newValue
                             }
                     }
@@ -661,24 +674,84 @@ struct SettingsView: View {
                 Section("Transcription Engine") {
                     Picker("Mode", selection: $transcriptionMode) {
                         Text("Cloud (Deepgram)").tag("cloud")
-                        Text("Local (Sherpa)").tag("sherpa")
                         Text("Local (Whisper)").tag("whisper")
+                        Text("Local (Sherpa)").tag("sherpa")
                     }
-                    .onChange(of: transcriptionMode) { newValue in
+                    .onChange(of: transcriptionMode) { _, newValue in
                         SettingsService.shared.transcriptionMode = newValue
                     }
                 }
                 
                 Section("OpenAI Model") {
                     Picker("Model", selection: $selectedModel) {
+                        Text("GPT-4.1").tag("gpt-4.1")
                         Text("GPT-4.1 Mini").tag("gpt-4.1-mini")
-                        Text("GPT-4o Mini").tag("gpt-4o-mini")
+                        Text("GPT-4.1 Nano").tag("gpt-4.1-nano")
                         Text("GPT-4o").tag("gpt-4o")
+                        Text("GPT-4o Mini").tag("gpt-4o-mini")
                         Text("GPT-3.5 Turbo").tag("gpt-3.5-turbo")
                     }
-                    .onChange(of: selectedModel) { newValue in
+                    .onChange(of: selectedModel) { _, newValue in
                         SettingsService.shared.openaiModel = newValue
                     }
+                }
+                
+                Section("Notifications") {
+                    Toggle("Battery Low (50%)", isOn: $notifyBatteryLow)
+                        .onChange(of: notifyBatteryLow) { _, newValue in
+                            SettingsService.shared.notifyBatteryLow = newValue
+                        }
+                    Toggle("Battery Critical (20%)", isOn: $notifyBatteryCritical)
+                        .onChange(of: notifyBatteryCritical) { _, newValue in
+                            SettingsService.shared.notifyBatteryCritical = newValue
+                        }
+                    Toggle("Task Reminders", isOn: $notifyTaskReminders)
+                        .onChange(of: notifyTaskReminders) { _, newValue in
+                            SettingsService.shared.notifyTaskReminders = newValue
+                        }
+                    Toggle("Processing Alerts", isOn: $notifyProcessing)
+                        .onChange(of: notifyProcessing) { _, newValue in
+                            SettingsService.shared.notifyProcessing = newValue
+                        }
+                }
+                
+                Section("Data") {
+                    NavigationLink(destination: StatsView()) {
+                        HStack {
+                            Image(systemName: "chart.bar")
+                                .foregroundColor(.purple)
+                            Text("Statistics")
+                        }
+                    }
+                    
+                    if appState.hasStorageSupport {
+                        NavigationLink(destination: SdCardSyncView()) {
+                            HStack {
+                                Image(systemName: "sdcard")
+                                    .foregroundColor(.orange)
+                                Text("SD Card Sync")
+                            }
+                        }
+                    }
+                    
+                    Button {
+                        Task {
+                            let data = await DatabaseService.shared.exportAllData()
+                            if let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
+                               let jsonString = String(data: jsonData, encoding: .utf8) {
+                                exportData = jsonString
+                                showExportSheet = true
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.green)
+                            Text("Export All Data")
+                        }
+                    }
+                    
+                    Toggle("iCloud Backup", isOn: $iCloudBackup)
                 }
                 
                 Section("Usage Stats") {
@@ -703,8 +776,55 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Text("Omi Local")
+                                .fontWeight(.bold)
+                            Text("Version 2.1.0 • Self-Hosted")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .listRowBackground(Color.clear)
+                }
             }
             .navigationTitle("Settings")
+            .sheet(isPresented: $showExportSheet) {
+                ExportSheet(data: exportData)
+            }
+        }
+    }
+}
+
+struct ExportSheet: View {
+    let data: String
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(data)
+                    .font(.system(.caption, design: .monospaced))
+                    .padding()
+            }
+            .navigationTitle("Export Data")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    ShareLink(item: data) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
         }
     }
 }
