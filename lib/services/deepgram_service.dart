@@ -92,7 +92,7 @@ class DeepgramService {
           
           if (transcript != null && transcript.isNotEmpty) {
             // Convert to TranscriptSegment
-            final segments = _parseWords(words ?? []);
+            final segments = parseWords(words ?? []);
             if (segments.isNotEmpty) {
               onTranscript?.call(segments);
             }
@@ -104,35 +104,42 @@ class DeepgramService {
     }
   }
 
-  List<TranscriptSegment> _parseWords(List words) {
+  /// Split a result's words into segments, one per *consecutive run* of the
+  /// same speaker. (Grouping all words by speaker, as this used to do, merged
+  /// A-B-A turns into one A and one B segment, which scrambled the transcript
+  /// order and made each segment span audio from several people.)
+  @visibleForTesting
+  List<TranscriptSegment> parseWords(List words) {
     if (words.isEmpty) return [];
-    
-    // Group words by speaker
-    Map<int, List<dynamic>> speakerWords = {};
-    
-    for (var word in words) {
-      final speaker = word['speaker'] ?? 0;
-      speakerWords.putIfAbsent(speaker, () => []).add(word);
-    }
-    
-    List<TranscriptSegment> segments = [];
-    
-    for (var entry in speakerWords.entries) {
-      final wordList = entry.value;
-      if (wordList.isEmpty) continue;
-      
-      final text = wordList.map((w) => w['word'] ?? '').join(' ');
-      final start = (wordList.first['start'] ?? 0).toDouble();
-      final end = (wordList.last['end'] ?? 0).toDouble();
-      
+
+    final segments = <TranscriptSegment>[];
+    var run = <dynamic>[];
+    int? runSpeaker;
+
+    void flush() {
+      if (run.isEmpty) return;
+      // `punctuated_word` carries punctuation/capitalisation; fall back to the
+      // bare word if a response does not include it.
+      final text = run
+          .map((w) => (w['punctuated_word'] ?? w['word'] ?? '').toString())
+          .join(' ');
       segments.add(TranscriptSegment(
         text: text,
-        speakerId: entry.key,
-        startTime: start,
-        endTime: end,
+        speakerId: runSpeaker ?? 0,
+        startTime: ((run.first['start'] as num?) ?? 0).toDouble(),
+        endTime: ((run.last['end'] as num?) ?? 0).toDouble(),
       ));
+      run = <dynamic>[];
     }
-    
+
+    for (final word in words) {
+      final speaker = ((word['speaker'] as num?) ?? 0).toInt();
+      if (runSpeaker != null && speaker != runSpeaker) flush();
+      runSpeaker = speaker;
+      run.add(word);
+    }
+    flush();
+
     return segments;
   }
 
