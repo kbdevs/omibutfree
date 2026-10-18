@@ -140,6 +140,46 @@ class _DeviceTabState extends State<DeviceTab> {
   }
 
   Widget _buildBody(AppProvider provider) {
+    final view = _buildMainView(provider);
+    final warning = provider.transcriptionWarning;
+    if (warning == null) return view;
+    return Column(
+      children: [
+        _buildTranscriptionWarning(provider, warning),
+        Expanded(child: view),
+      ],
+    );
+  }
+
+  /// Shown when transcription stopped because Deepgram stayed unreachable.
+  Widget _buildTranscriptionWarning(AppProvider provider, String message) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: colors.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: colors.onErrorContainer),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Dismiss',
+              icon: Icon(Icons.close, color: colors.onErrorContainer),
+              onPressed: provider.dismissTranscriptionWarning,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainView(AppProvider provider) {
     // Show connected view when listening (either Omi or phone mic)
     if (provider.isListening || provider.isUsingPhoneMic) {
       return _buildConnectedView(provider);
@@ -616,20 +656,29 @@ class _DeviceTabState extends State<DeviceTab> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getSpeakerColor(segment.speakerId),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'S${segment.speakerId}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
+                              // A person's name can be long; cap the chip so the
+                              // transcript text beside it keeps its space.
+                              ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 120),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _getSpeakerColor(segment.speakerId),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    segment.speakerName ??
+                                        'S${segment.speakerId}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ),

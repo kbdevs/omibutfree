@@ -1,5 +1,6 @@
 /// App state provider for device, conversations, and recording
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -17,6 +18,9 @@ import '../services/opus_decoder_service.dart';
 import '../services/notification_service.dart';
 import '../services/mic_service.dart';
 import '../services/sdcard_sync_service.dart';
+import '../services/serial_queue.dart';
+import '../services/speaker_id_service.dart';
+import '../services/speaker_matching.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -33,6 +37,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
   WhisperService? _whisperService;
   OpenAIService? _openaiService;
   OpusDecoderService? _opusDecoder;
+  SpeakerIdService? _speakerId; // On-device speaker recognition (Deepgram mode)
 
   // Device state
   DeviceConnectionState _deviceState = DeviceConnectionState.disconnected;
@@ -46,6 +51,18 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
   bool _isListening = false;
   bool get isListening => _isListening;
+
+  /// Set when cloud transcription stopped because Deepgram could not be
+  /// reached again; shown on the home page until dismissed or listening is
+  /// started again.
+  String? _transcriptionWarning;
+  String? get transcriptionWarning => _transcriptionWarning;
+
+  void dismissTranscriptionWarning() {
+    if (_transcriptionWarning == null) return;
+    _transcriptionWarning = null;
+    notifyListeners();
+  }
 
   // Phone mic state
   bool _isUsingPhoneMic = false;
@@ -164,6 +181,9 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       await loadConversations();
       await loadMemories();
       await loadTasks();
+      // Drop old voice clips kept for labeling (see DatabaseService).
+      await DatabaseService.purgeOldConversationSpeakers();
+      await loadPeople();
     } catch (e) {
       debugPrint('AppProvider init error: $e');
     }
@@ -371,6 +391,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     required bool useOpusEncoding,
   }) async {
     final transcriptionMode = SettingsService.transcriptionMode;
+    _transcriptionWarning = null;
 
     // Validate API keys for cloud mode
     if (transcriptionMode == 'cloud' && !SettingsService.hasDeepgramKey) {
@@ -418,16 +439,20 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
       default: // 'cloud'
         debugPrint('Starting with CLOUD Deepgram transcription');
-        _deepgramService = DeepgramService(
+        late final DeepgramService deepgram;
+        deepgram = _deepgramService = DeepgramService(
           apiKey: SettingsService.deepgramApiKey,
           language: SettingsService.language,
           onTranscript: _onTranscriptReceived,
           onError: (error) => debugPrint('Deepgram error: $error'),
+          onReconnected: _onDeepgramReconnected,
+          onGaveUp: () => _onDeepgramGaveUp(deepgram),
           // Use linear16 for phone mic (raw PCM), opus for Omi
           encoding: useOpusEncoding ? 'opus' : 'linear16',
           sampleRate: 16000,
         );
         await _deepgramService!.connect();
+        _startSpeakerId();
     }
   }
 
@@ -440,6 +465,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _hasActiveConversation = false;
     _lastTranscriptTime = null;
     _cancelSilenceTimer();
+    _speakerId?.session.startNewConversation();
+    _conversationGen++;
     debugPrint('Started new conversation: ${_currentConversation!.id}');
   }
 
@@ -458,8 +485,22 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
       }
     }
 
+    // Give already-recognized speakers their name straight away
+    _applyKnownSpeakers(segments);
+
     // Add segments to current conversation
-    _liveSegments.addAll(segments);
+    // Deepgram answers every pause with a new result; join same-speaker runs
+    // into one block. (Local engines keep their own segmentation.)
+    debugPrint(
+      'Transcript segments: ${segments.map((s) => "[spk ${s.speakerId} "
+          "${s.startTime.toStringAsFixed(1)}-${s.endTime.toStringAsFixed(1)}s]").join(" ")}',
+    );
+    if (_mergesSegments) {
+      appendSegmentsMerged(_liveSegments, segments);
+    } else {
+      _liveSegments.addAll(segments);
+    }
+    _scheduleSpeakerIdentification(segments);
     _lastTranscriptTime = DateTime.now();
     _hasActiveConversation = true;
 
@@ -467,6 +508,13 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _resetSilenceTimer();
 
     notifyListeners();
+  }
+
+  /// Cloud (Deepgram) results arrive in many small pieces and are merged into
+  /// blocks; the local engines keep their own segmentation.
+  bool get _mergesSegments {
+    final mode = SettingsService.transcriptionMode;
+    return mode != 'sherpa' && mode != 'whisper';
   }
 
   void _resetSilenceTimer() {
@@ -495,6 +543,10 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     // Copy data before resetting
     final conversationToSave = _currentConversation!;
     conversationToSave.segments = List.from(_liveSegments);
+    // Voice samples gathered for this conversation's speakers (kept so the
+    // user can label them later). Taken before the session is reset below.
+    final speakerEmbeddings = _speakerId?.session.snapshotEmbeddings();
+    final voiceEpoch = _voiceDataEpoch;
 
     // Start new conversation immediately so listening continues
     _startNewConversation();
@@ -595,6 +647,19 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     // Save to database
     await DatabaseService.saveConversation(conversationToSave);
+    if (speakerEmbeddings != null && speakerEmbeddings.isNotEmpty) {
+      await _queueVoiceWrite(() async {
+        // "Delete all voice data" ran after these samples were taken: they
+        // must not be written back.
+        if (voiceEpoch != _voiceDataEpoch) return;
+        await DatabaseService.saveConversationSpeakers(
+          conversationToSave.id,
+          speakerEmbeddings,
+        );
+      });
+    }
+    // Expire old voice clips while the app keeps running, not only at start.
+    await DatabaseService.purgeOldConversationSpeakers();
     await loadConversations();
 
     debugPrint('Saved conversation: ${conversationToSave.title}');
@@ -631,6 +696,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     // Clean up transcription services
     await _deepgramService?.disconnect();
     _deepgramService = null;
+    _speakerId?.dispose();
+    _speakerId = null;
     _sherpaService?.stopProcessing();
     _sherpaService?.dispose();
     _sherpaService = null;
@@ -650,10 +717,430 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     debugPrint('Stopped continuous listening');
   }
 
+  // === Speaker Recognition ===
+  //
+  // Deepgram labels speakers "0, 1, 2 ...". While listening we cut each
+  // segment's audio out of a rolling buffer, turn it into a voice embedding
+  // with Sherpa-ONNX and compare it with the people the user has labeled
+  // before. Labeling a speaker in a saved conversation teaches the app that
+  // person's voice (see assignSpeaker).
+
+  List<Person> _people = [];
+  List<Person> get people => _people;
+
+  /// True while a speaker-recognition session is attached to the live stream.
+  bool get isSpeakerRecognitionActive => _speakerId != null;
+
+  Future<void> _idChain = Future.value();
+
+  /// Completes when the enrolled voices have been loaded into the current
+  /// speaker service. Identification waits for it, so the first segments of a
+  /// conversation are not matched against an empty list of people.
+  Future<void> _profilesLoaded = Future.value();
+
+  /// Bumped each time a conversation ends, so identification work queued for
+  /// the old conversation cannot add its clips to the next one.
+  int _conversationGen = 0;
+
+  /// Set when the voice model could not be downloaded or loaded, so queued
+  /// segments do not each retry the download.
+  bool _speakerModelFailed = false;
+
+  Future<void> loadPeople() async {
+    _people = await DatabaseService.getPeople();
+    _syncSegmentNames();
+    await _refreshSpeakerProfiles();
+    notifyListeners();
+  }
+
+  Future<void> _refreshSpeakerProfiles() async {
+    final embeddings = await DatabaseService.getAllPersonEmbeddings();
+    final profiles = [
+      for (final p in _people)
+        SpeakerProfile(
+          id: p.id,
+          name: p.name,
+          embeddings: embeddings[p.id] ?? <Float32List>[],
+        ),
+    ];
+    _speakerId?.setProfiles(profiles);
+  }
+
+  /// Make saved transcripts show a person's current name (covers renames).
+  void _syncSegmentNames() {
+    applyPersonNames(_conversations, {for (final p in _people) p.id: p.name});
+  }
+
+  /// Bumped by "Delete all voice data" and when recognition is turned off; a
+  /// conversation save that captured its voice samples before that must not
+  /// write them afterwards.
+  int _voiceDataEpoch = 0;
+
+  /// Voice-sample changes (saving a conversation's samples, labeling a
+  /// speaker, delete-all) run one after another, so they cannot interleave.
+  final SerialQueue _voiceWrites = SerialQueue();
+
+  Future<T> _queueVoiceWrite<T>(Future<T> Function() op) =>
+      _voiceWrites.run(op);
+
+  /// Applies a changed match threshold to the running session.
+  void updateSpeakerMatchThreshold(double value) {
+    SettingsService.speakerMatchThreshold = value;
+    _speakerId?.updateThreshold(value);
+  }
+
+  /// Stops recognition in the running session (the setting was turned off):
+  /// no more voice samples are computed or kept, and queued work is dropped,
+  /// including samples a conversation save captured but has not written yet.
+  void stopSpeakerRecognition() {
+    _speakerId?.dispose();
+    _speakerId = null;
+    _speakerStreamGen++;
+    _voiceDataEpoch++;
+  }
+
+  /// Start speaker recognition for a new Deepgram stream.
+  void _startSpeakerId() {
+    _speakerId?.dispose();
+    _speakerId = null;
+    if (!SettingsService.speakerIdEnabled) return;
+
+    final service = SpeakerIdService();
+    _speakerId = service;
+    _speakerModelFailed = false;
+    service.resetStream();
+    // A new service starts a new queue, so work still running for the previous
+    // service (for example a model download that has not finished) cannot hold
+    // it up. That old work drops itself through the stale() checks.
+    _idChain = Future.value();
+    _profilesLoaded = _refreshSpeakerProfiles().catchError((Object e) {
+      debugPrint('Could not load speaker profiles: $e');
+    });
+
+    // Download/load the model in the background so transcription starts at once.
+    service.initialize().then((_) {
+      if (!service.isReady) return; // disposed while loading
+      debugPrint('Speaker recognition ready');
+      notifyListeners();
+    }).catchError((Object e) {
+      debugPrint('Speaker recognition unavailable: $e');
+    });
+  }
+
+  /// Bumped whenever Deepgram's stream clock restarts, when recognition is
+  /// turned off, and when all voice data is deleted, so identification work
+  /// queued before that can tell it is stale.
+  int _speakerStreamGen = 0;
+
+  /// Deepgram dropped the connection and it was re-opened. Its clock and
+  /// "speaker N" numbering start over, so restart the speaker timeline too.
+  void _onDeepgramReconnected() {
+    debugPrint('Deepgram reconnected - restarting the speaker timeline');
+    // The new stream numbers its speakers from 0 again, so "speaker 0" before
+    // and after can be different people. End the current conversation here so
+    // no saved conversation mixes the two numberings (the audio during the
+    // drop was lost anyway). This also keeps the voice samples gathered so
+    // far, which are read before the reset below.
+    if (_currentConversation != null && _liveSegments.isNotEmpty) {
+      unawaited(_saveCurrentConversation());
+    }
+    _speakerStreamGen++;
+    _speakerId?.resetStream();
+  }
+
+  /// Deepgram stayed unreachable through all the reconnect attempts. Listening
+  /// would only throw audio away, so stop (which also saves the conversation
+  /// so far) and leave a warning telling the user why.
+  void _onDeepgramGaveUp(DeepgramService source) {
+    if (!identical(source, _deepgramService)) return; // an old session
+    debugPrint('Deepgram unreachable - stopping listening');
+    _transcriptionWarning =
+        'Lost the connection to Deepgram and could not restore it, so '
+        'listening has stopped. Check your internet connection and API key, '
+        'then start listening again.';
+    notifyListeners();
+    // The banner is on the Live tab only, and listening may stop while the app
+    // is in the background or another tab is open, so also post a notification.
+    NotificationService()
+        .showNotification(
+          'Omi stopped listening',
+          'Could not reach Deepgram. Open the app to start listening again.',
+        )
+        .catchError((Object e) => debugPrint('Notification failed: $e'));
+    unawaited(stopListening());
+  }
+
+  /// Send audio to Deepgram and mirror it into the speaker buffer so both share
+  /// one timeline. [wireAudio] is what Deepgram expects (Opus or PCM16);
+  /// [pcm] is the same audio as PCM16 (null if Opus decoding failed).
+  void _sendToDeepgram(Uint8List wireAudio, Uint8List? pcm) {
+    final dg = _deepgramService;
+    if (dg == null || !dg.isConnected) return; // sendAudio would drop it too
+    dg.sendAudio(wireAudio);
+    _speakerId?.feedPcm(pcm);
+  }
+
+  void _applyKnownSpeakers(List<TranscriptSegment> segments) {
+    final svc = _speakerId;
+    if (svc == null) return;
+    for (final s in segments) {
+      final person = svc.session.resolvedFor(s.speakerId);
+      if (person != null) {
+        s.speakerName = person.name;
+        s.personId = person.id;
+      }
+    }
+  }
+
+  void _scheduleSpeakerIdentification(List<TranscriptSegment> segments) {
+    final svc = _speakerId;
+    if (svc == null) return;
+    final gen = _speakerStreamGen;
+    final convGen = _conversationGen;
+    // One at a time, in order, so embeddings are not computed concurrently.
+    _idChain = _idChain
+        .then((_) => _identifySegments(svc, segments, gen, convGen))
+        .catchError((Object e) {
+      debugPrint('Speaker identification error: $e');
+    });
+  }
+
+  Future<void> _identifySegments(
+    SpeakerIdService svc,
+    List<TranscriptSegment> segments,
+    int gen,
+    int convGen,
+  ) async {
+    // Work queued for an earlier Deepgram stream or conversation is dropped.
+    bool stale() =>
+        !identical(svc, _speakerId) ||
+        gen != _speakerStreamGen ||
+        convGen != _conversationGen;
+    if (stale() || _speakerModelFailed) return;
+    if (!svc.isReady) {
+      // First use: the model is still downloading/loading. Wait for it rather
+      // than skipping the opening segments of the conversation.
+      try {
+        await svc.initialize();
+      } catch (_) {
+        // _startSpeakerId logs the reason.
+        if (identical(svc, _speakerId)) _speakerModelFailed = true;
+        return;
+      }
+      if (stale() || !svc.isReady) return;
+    }
+    await _profilesLoaded;
+    if (stale()) return;
+
+    final touched = <int>{};
+    for (final seg in segments) {
+      final duration = seg.endTime - seg.startTime;
+      if (duration < SpeakerIdService.minSegmentSeconds) continue;
+
+      final end = math.min(
+        seg.endTime,
+        seg.startTime + SpeakerIdService.maxSegmentSeconds,
+      );
+      final clip = svc.buffer.slice(seg.startTime, end);
+      if (clip == null) {
+        debugPrint(
+          'Speaker clip ${seg.startTime.toStringAsFixed(1)}-${end.toStringAsFixed(1)}s '
+          'unavailable (buffer holds ${svc.buffer.durationSeconds.toStringAsFixed(1)}s)',
+        );
+        continue;
+      }
+
+      // Let the UI render between embeddings (the model call is synchronous).
+      await Future<void>.delayed(Duration.zero);
+      if (stale()) return;
+
+      final embedding = svc.embed(clip);
+      if (embedding == null) continue;
+      svc.session.addEmbedding(seg.speakerId, embedding);
+      touched.add(seg.speakerId);
+    }
+
+    var changed = false;
+    for (final id in touched) {
+      final result = svc.session.resolve(id);
+      if (result != null) {
+        // Handy when tuning the threshold: watch these lines in the console.
+        debugPrint(
+          'Speaker $id -> ${result.profile?.name ?? "unknown"} '
+          '(score ${result.score.toStringAsFixed(2)}, '
+          'runner-up ${result.runnerUp.toStringAsFixed(2)})',
+        );
+      }
+      changed = _applyResolution(id) || changed;
+    }
+    if (changed) {
+      // Naming can reveal that neighboring blocks are the same person.
+      if (_mergesSegments) mergeAdjacentSegments(_liveSegments);
+      notifyListeners();
+    }
+  }
+
+  /// Point every live segment of [speakerId] at the currently resolved person.
+  bool _applyResolution(int speakerId) {
+    final svc = _speakerId;
+    if (svc == null) return false;
+    final person = svc.session.resolvedFor(speakerId);
+    var changed = false;
+    for (final seg in _liveSegments) {
+      if (seg.speakerId != speakerId || seg.personId == person?.id) continue;
+      seg.speakerName = person?.name;
+      seg.personId = person?.id;
+      changed = true;
+    }
+    return changed;
+  }
+
+  /// Label one speaker of a saved conversation as [personId] (existing) or as
+  /// a new person called [newPersonName]. The voice samples captured for that
+  /// speaker are enrolled for the person, so they are recognized next time.
+  ///
+  /// Returns how many voice samples were learned (0 if none were captured, e.g.
+  /// speaker recognition was off or the speaker only said short phrases).
+  Future<int> assignSpeaker({
+    required Conversation conversation,
+    required int speakerId,
+    String? personId,
+    String? newPersonName,
+  }) async {
+    String id;
+    String name;
+    if (personId != null) {
+      // The person may have been deleted since the sheet was opened.
+      final matches = _people.where((p) => p.id == personId);
+      if (matches.isEmpty) return 0;
+      final person = matches.first;
+      id = person.id;
+      name = person.name;
+    } else {
+      name = (newPersonName ?? '').trim();
+      if (name.isEmpty) return 0;
+      // Reuse an existing person with the same name rather than duplicating.
+      final existing = _people.where(
+        (p) => p.name.toLowerCase() == name.toLowerCase(),
+      );
+      if (existing.isNotEmpty) {
+        id = existing.first.id;
+        name = existing.first.name;
+      } else {
+        id = const Uuid().v4();
+        await DatabaseService.savePerson(id, name);
+      }
+    }
+
+    // Is this speaker already labeled as the chosen person?
+    final speakerSegments =
+        conversation.segments.where((s) => s.speakerId == speakerId);
+    final alreadyThisPerson =
+        speakerSegments.isNotEmpty && speakerSegments.every((s) => s.personId == id);
+
+    // Undo what this speaker previously taught (possibly the wrong person),
+    // then enroll their voice samples under the chosen person. One queued
+    // step, so a "Delete all voice data" cannot run between reading the
+    // samples and writing them.
+    final samples = await _queueVoiceWrite<List<Float32List>?>(() async {
+      // The person may have been deleted since the sheet was opened.
+      final people = await DatabaseService.getPeople();
+      if (!people.any((p) => p.id == id)) return null;
+      final found = await DatabaseService.getConversationSpeakerEmbeddings(
+        conversation.id,
+        speakerId,
+      );
+      // Re-picking the same person after the stored samples were purged: there
+      // is nothing to learn again, and removing what this speaker already
+      // taught that person would only lose it.
+      if (found.isNotEmpty || !alreadyThisPerson) {
+        await DatabaseService.removeEnrollmentsFor(conversation.id, speakerId);
+      }
+      if (found.isNotEmpty) {
+        await DatabaseService.addPersonEmbeddings(
+          id,
+          found,
+          conversationId: conversation.id,
+          speakerId: speakerId,
+        );
+      }
+      return found;
+    });
+    if (samples == null) return 0; // person was deleted meanwhile; nothing changed
+
+    for (final seg in conversation.segments) {
+      if (seg.speakerId == speakerId) {
+        seg.speakerName = name;
+        seg.personId = id;
+      }
+    }
+    await DatabaseService.saveConversation(conversation);
+    await loadConversations();
+    await loadPeople();
+    return samples.length;
+  }
+
+  /// Remove the name from one speaker of a saved conversation and forget what
+  /// their voice samples taught the app.
+  Future<void> clearSpeakerLabel({
+    required Conversation conversation,
+    required int speakerId,
+  }) async {
+    await _queueVoiceWrite(
+      () => DatabaseService.removeEnrollmentsFor(conversation.id, speakerId),
+    );
+    for (final seg in conversation.segments) {
+      if (seg.speakerId == speakerId) {
+        seg.speakerName = null;
+        seg.personId = null;
+      }
+    }
+    await DatabaseService.saveConversation(conversation);
+    await loadConversations();
+    await loadPeople();
+  }
+
+  /// Renames a person. Returns false (and changes nothing) if the name is
+  /// empty or another person already has it.
+  Future<bool> renamePerson(String personId, String newName) async {
+    final name = newName.trim();
+    if (name.isEmpty) return false;
+    final lower = name.toLowerCase();
+    if (_people.any((p) => p.id != personId && p.name.toLowerCase() == lower)) {
+      return false;
+    }
+    await DatabaseService.renamePerson(personId, name);
+    await loadPeople();
+    return true;
+  }
+
+  /// Deletes a person and their voice samples. Transcripts keep the name text.
+  Future<void> deletePerson(String personId) async {
+    await _queueVoiceWrite(() => DatabaseService.deletePerson(personId));
+    _speakerId?.session.forgetPerson(personId);
+    await loadPeople();
+  }
+
+  /// Deletes every stored voice sample: those learned for named people (the
+  /// people keep their names) and those kept for labeling saved conversations.
+  Future<void> deleteAllVoiceData() async {
+    _voiceDataEpoch++;
+    // Identification work already queued was started on audio from before the
+    // delete; it must not add voice samples to the session afterwards.
+    _speakerStreamGen++;
+    await _queueVoiceWrite(DatabaseService.deleteAllVoiceData);
+    for (final p in _people) {
+      _speakerId?.session.forgetPerson(p.id);
+    }
+    _speakerId?.session.startNewConversation();
+    await loadPeople();
+  }
+
   // === Conversations Methods ===
 
   Future<void> loadConversations() async {
     _conversations = await DatabaseService.getConversations();
+    _syncSegmentNames();
     notifyListeners();
   }
 
@@ -1300,9 +1787,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
           break;
         default: // cloud
           // Deepgram expects Opus when encoding='opus'
-          if (_deepgramService != null) {
-            _deepgramService?.sendAudio(trimmedAudio);
-          }
+          _sendToDeepgram(trimmedAudio, pcmData);
       }
     }
   }
@@ -1326,9 +1811,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
         break;
       default: // cloud
         // Deepgram expects linear16 when encoding='linear16'
-        if (_deepgramService != null) {
-          _deepgramService?.sendAudio(alignedData);
-        }
+        _sendToDeepgram(alignedData, alignedData);
     }
   }
 
@@ -1376,6 +1859,8 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
 
     if (state == AppLifecycleState.resumed) {
       NotificationService().resetGlobalBadge();
+      // The app can stay alive for days, so check retention on every resume.
+      unawaited(DatabaseService.purgeOldConversationSpeakers());
     }
   }
 
@@ -1389,6 +1874,7 @@ class AppProvider with ChangeNotifier, WidgetsBindingObserver {
     _silenceTimer?.cancel();
     _bleService.dispose();
     _deepgramService?.disconnect();
+    _speakerId?.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }

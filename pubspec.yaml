@@ -48,6 +48,7 @@ dependencies:
 
   # OpenAI API
   http: ^1.2.0
+  crypto: ^3.0.3
 
   # State management
   provider: ^6.1.0

@@ -5,10 +5,21 @@ import 'dart:convert';
 /// A single segment of transcribed speech
 class TranscriptSegment {
   final String text;
+
+  /// Diarization index. For Deepgram this is only stable within one
+  /// listening session, so it identifies "a speaker in this conversation",
+  /// not a person across conversations.
   final int speakerId;
   final double startTime;
   final double endTime;
   final bool isUser;
+
+  /// Name of the identified/assigned person, or null if this speaker has not
+  /// been recognized or labeled yet.
+  String? speakerName;
+
+  /// Id of the matching row in the `people` table (null if unlabeled).
+  String? personId;
 
   TranscriptSegment({
     required this.text,
@@ -16,7 +27,13 @@ class TranscriptSegment {
     required this.startTime,
     required this.endTime,
     this.isUser = false,
+    this.speakerName,
+    this.personId,
   });
+
+  /// The full label for text: the summarizer and dialogs. Compact chips and
+  /// avatars show `S1`, `S2`, ... for an unnamed speaker instead.
+  String get displayName => speakerName ?? 'Speaker $speakerId';
 
   Map<String, dynamic> toJson() => {
     'text': text,
@@ -24,6 +41,8 @@ class TranscriptSegment {
     'start': startTime,
     'end': endTime,
     'is_user': isUser,
+    if (speakerName != null) 'speaker_name': speakerName,
+    if (personId != null) 'person_id': personId,
   };
 
   factory TranscriptSegment.fromJson(Map<String, dynamic> json) {
@@ -33,6 +52,116 @@ class TranscriptSegment {
       startTime: (json['start'] ?? 0).toDouble(),
       endTime: (json['end'] ?? 0).toDouble(),
       isUser: json['is_user'] ?? false,
+      speakerName: json['speaker_name'] as String?,
+      personId: json['person_id'] as String?,
+    );
+  }
+}
+
+/// True if two segments are from the same voice: the same Deepgram speaker
+/// number, or both recognized as the same person. (Deepgram's live diarization
+/// can flip one voice between two numbers, but recognition still names both
+/// as the same person.)
+bool _sameVoice(TranscriptSegment a, TranscriptSegment b) =>
+    a.speakerId == b.speakerId ||
+    (a.personId != null && a.personId == b.personId);
+
+/// Appends [incoming] to [target], joining a segment onto the previous one when
+/// both are from the same voice and the pause between them is short.
+///
+/// Deepgram sends a new result after every pause, so one person talking with
+/// pauses would otherwise show up as a string of small blocks. A different
+/// speaker in between, or a long gap, still starts a new block. When two
+/// Deepgram speaker numbers are merged because both were recognized as the same
+/// person, the block keeps the earlier segment's speaker number only. (Labeling
+/// that block later uses that number's voice samples; the other number's
+/// samples are not linked to it.) A segment may
+/// start up to one second before the previous one ended (Deepgram's word
+/// timings can overlap slightly) and still merge; a larger jump backwards
+/// never merges. A new Deepgram stream restarts its clock, so the app ends the
+/// current conversation when the stream reconnects instead of relying on this
+/// check.
+void appendSegmentsMerged(
+  List<TranscriptSegment> target,
+  List<TranscriptSegment> incoming, {
+  double maxGapSeconds = 10,
+}) {
+  for (final seg in incoming) {
+    if (target.isNotEmpty) {
+      final last = target.last;
+      final gap = seg.startTime - last.endTime;
+      if (_sameVoice(last, seg) &&
+          gap >= -1.0 &&
+          gap <= maxGapSeconds) {
+        target[target.length - 1] = TranscriptSegment(
+          text: '${last.text} ${seg.text}'.trim(),
+          speakerId: last.speakerId,
+          startTime: last.startTime,
+          endTime: seg.endTime > last.endTime ? seg.endTime : last.endTime,
+          isUser: last.isUser || seg.isUser,
+          speakerName: seg.speakerName ?? last.speakerName,
+          personId: seg.personId ?? last.personId,
+        );
+        continue;
+      }
+    }
+    target.add(seg);
+  }
+}
+
+/// Sets each segment's `speakerName` from [namesByPersonId] (person id to
+/// current name), so a rename shows in every saved transcript. Segments whose
+/// person is not in the map keep the name they have.
+void applyPersonNames(
+  Iterable<Conversation> conversations,
+  Map<String, String> namesByPersonId,
+) {
+  if (namesByPersonId.isEmpty) return;
+  for (final c in conversations) {
+    for (final s in c.segments) {
+      final name = s.personId == null ? null : namesByPersonId[s.personId];
+      if (name != null) s.speakerName = name;
+    }
+  }
+}
+
+/// Re-applies [appendSegmentsMerged] to [segments] in place, so [segments] must
+/// be a growable list (not `const []`). Used after speaker recognition names
+/// segments that arrived unnamed, which can make neighboring blocks belong to
+/// the same person.
+void mergeAdjacentSegments(
+  List<TranscriptSegment> segments, {
+  double maxGapSeconds = 10,
+}) {
+  final merged = <TranscriptSegment>[];
+  appendSegmentsMerged(merged, segments, maxGapSeconds: maxGapSeconds);
+  segments
+    ..clear()
+    ..addAll(merged);
+}
+
+/// A person whose voice has been enrolled for automatic recognition.
+class Person {
+  final String id;
+  String name;
+  final DateTime createdAt;
+
+  /// How many voice samples are stored for this person (more = better).
+  final int sampleCount;
+
+  Person({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+    this.sampleCount = 0,
+  });
+
+  factory Person.fromDbRow(Map<String, dynamic> row) {
+    return Person(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+      sampleCount: (row['sample_count'] as int?) ?? 0,
     );
   }
 }
@@ -54,7 +183,7 @@ class Conversation {
   });
 
   String get transcript {
-    return segments.map((s) => 'Speaker ${s.speakerId}: ${s.text}').join('\n');
+    return segments.map((s) => '${s.displayName}: ${s.text}').join('\n');
   }
 
   /// Get the duration of the conversation from first to last segment

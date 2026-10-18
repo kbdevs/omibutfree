@@ -80,6 +80,17 @@ class SettingsService {
   static bool get notifyProcessing => prefs.getBool('notify_processing') ?? true;
   static set notifyProcessing(bool value) => prefs.setBool('notify_processing', value);
   
+  // Speaker recognition (cloud/Deepgram mode only)
+  static bool get speakerIdEnabled => prefs.getBool('speaker_id_enabled') ?? false;
+  static set speakerIdEnabled(bool value) => prefs.setBool('speaker_id_enabled', value);
+
+  /// Cosine-similarity cut-off for naming a voice. Higher = stricter (fewer
+  /// wrong names, more "Speaker N" left unlabeled). 0.6 sits in the middle of
+  /// the range that gave no false matches on test audio (0.55-0.65); real-world
+  /// audio from the Omi mic may need tuning.
+  static double get speakerMatchThreshold => prefs.getDouble('speaker_match_threshold') ?? 0.6;
+  static set speakerMatchThreshold(double value) => prefs.setDouble('speaker_match_threshold', value);
+
   // iCloud backup
   static bool get icloudBackupEnabled => prefs.getBool('icloud_backup_enabled') ?? false;
   static set icloudBackupEnabled(bool value) => prefs.setBool('icloud_backup_enabled', value);

@@ -10,6 +10,7 @@ import '../services/ble_service.dart';
 import '../services/settings_service.dart';
 import '../services/database_service.dart';
 import 'device_settings_page.dart';
+import 'people_page.dart';
 import 'stats_page.dart';
 import 'sdcard_sync_page.dart';
 
@@ -296,6 +297,90 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 32),
 
+          // Speaker recognition section
+          _buildSectionHeader('Speaker Recognition'),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Recognize speakers', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    SettingsService.useDeepgram
+                        ? 'Name people by their voice. Downloads a ~26 MB voice model the first time. Turning it on applies the next time listening starts; turning it off stops it now.'
+                        : 'Only works with the Cloud (Deepgram) transcription engine.',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13)),
+                  value: SettingsService.speakerIdEnabled,
+                  // Recognition needs Deepgram's speaker numbers, so it cannot be
+                  // switched on in another mode (it can still be switched off).
+                  onChanged: !SettingsService.useDeepgram &&
+                          !SettingsService.speakerIdEnabled
+                      ? null
+                      : (value) async {
+                          final provider =
+                              Provider.of<AppProvider>(context, listen: false);
+                          if (value) {
+                            final ok = await _confirmVoiceprints();
+                            if (ok != true) return;
+                          }
+                          if (!mounted) return;
+                          setState(() => SettingsService.speakerIdEnabled = value);
+                          // Switching off also stops a session that is running.
+                          if (!value) provider.stopSpeakerRecognition();
+                        },
+                  activeThumbColor: const Color(0xFF6C5CE7),
+                ),
+                if (SettingsService.speakerIdEnabled) ...[
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(
+                      children: [
+                        const Text('Match strictness', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text(SettingsService.speakerMatchThreshold.toStringAsFixed(2),
+                          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                      ],
+                    ),
+                  ),
+                  Slider(
+                    value: SettingsService.speakerMatchThreshold.clamp(0.4, 0.85),
+                    min: 0.4,
+                    max: 0.85,
+                    divisions: 45,
+                    activeColor: const Color(0xFF6C5CE7),
+                    onChanged: (value) {
+                      setState(() {});
+                      Provider.of<AppProvider>(context, listen: false)
+                          .updateSpeakerMatchThreshold(value);
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      'Higher = fewer wrong names but more speakers left unnamed. Lower it a little if people you have labeled are not being recognized; raise it if strangers get named.',
+                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13)),
+                  ),
+                ],
+                // Always available, so saved voices can be reviewed and deleted
+                // even while recognition is switched off.
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.record_voice_over),
+                  title: const Text('People & Voices', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    '${context.select<AppProvider, int>((p) => p.people.length)} saved',
+                    style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PeoplePage()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
           // Notifications section
           _buildSectionHeader('Notifications'),
           Card(
@@ -508,6 +593,46 @@ class _SettingsPageState extends State<SettingsPage> {
     _deepgramController.dispose();
     _openaiController.dispose();
     super.dispose();
+  }
+
+  /// Voiceprints are biometric data in some places, so ask before turning the
+  /// feature on and say what is stored, where and for how long.
+  Future<bool?> _confirmVoiceprints() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recognize speakers by voice?'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'While listening, the app computes a voiceprint (a numeric summary '
+            'of how a voice sounds) for every voice it hears, and stores them '
+            'in its local database on this device. Audio itself is not kept by '
+            'this feature, but it is still sent to Deepgram for transcription '
+            'as before.\n\n'
+            'Voiceprints from a conversation are deleted after '
+            '${DatabaseService.voiceClipRetentionDays} days unless you name '
+            'that speaker. Samples of people you name are kept until you '
+            'delete them under People & Voices, where you can also delete all '
+            'voice data. For each named person only the newest '
+            '${DatabaseService.maxEmbeddingsPerPerson} samples are kept; older '
+            'ones are replaced as new ones are added. Device backups may '
+            'include the database.\n\n'
+            'Only record people who are fine with this; voiceprints count as '
+            'biometric data in some places.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Turn on'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _exportAllData(BuildContext context) async {
