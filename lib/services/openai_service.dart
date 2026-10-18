@@ -13,6 +13,15 @@ class OpenAIService {
     String? model,
   }) : model = model ?? SettingsService.openaiModel;
 
+  /// Output-length limit for a request. GPT-6 models reject `max_tokens` and
+  /// require `max_completion_tokens` (confirmed with a direct API call to
+  /// gpt-6-luna). They also count reasoning tokens against the limit, so they
+  /// get 6x headroom; it is only a ceiling and costs nothing unless used.
+  /// Other models keep the request they always received.
+  Map<String, int> _tokenLimit(int limit) => model.startsWith('gpt-6')
+      ? {'max_completion_tokens': limit * 6}
+      : {'max_tokens': limit};
+
   /// Chat with OpenAI using conversation context
   Future<String> chat({
     required String userMessage,
@@ -53,7 +62,7 @@ Use this context to provide personalized and relevant responses. Reference speci
         body: jsonEncode({
           'model': model,
           'messages': messages,
-          'max_tokens': 1000,
+          ..._tokenLimit(1000),
         }),
       );
 
@@ -130,7 +139,7 @@ Keep each item as a short, clear statement.'''
               'content': 'Analyze this conversation:\n\n$transcript'
             }
           ],
-          'max_tokens': 700,
+          ..._tokenLimit(700),
           'response_format': {'type': 'json_object'},
         }),
       );

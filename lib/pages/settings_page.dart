@@ -283,6 +283,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       DropdownMenuItem(value: 'gpt-4.1', child: Text('GPT-4.1')),
                       DropdownMenuItem(value: 'gpt-4.1-mini', child: Text('GPT-4.1 Mini')),
                       DropdownMenuItem(value: 'gpt-4.1-nano', child: Text('GPT-4.1 Nano')),
+                      DropdownMenuItem(value: 'gpt-6-luna', child: Text('GPT-6 Luna')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
